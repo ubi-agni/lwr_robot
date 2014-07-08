@@ -64,14 +64,20 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     
   gzdbg << "remote : " << remote << " : " << remote_port << "\n";
   
+  
+  // get parameter name
+  std::string robotNamespace = "";
+  if (_sdf->HasElement("robotNamespace"))
+    robotNamespace = _sdf->GetElement("robotNamespace")->GetValueString();
+  
   if (!ros::isInitialized())
   {
     int argc = 0;
     char** argv = NULL;
     ros::init(argc,argv,"gazebo",ros::init_options::NoSigintHandler|ros::init_options::AnonymousName);
   }
-  this->rosnode_ = new ros::NodeHandle();
-    
+  this->rosnode_ = new ros::NodeHandle(robotNamespace);
+      
   GetRobotChain();
     
   for(unsigned int i = 0; i< 7; i++)
@@ -94,7 +100,9 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
       joint->SetAngle(0, init);
     }
     
-    stiffness_(i) = 200.0;
+    // stiffness_(i) = 200.0;
+    // damping_(i) = 5.0;
+    stiffness_(i) = 3000.0;
     damping_(i) = 5.0;
     trq_cmd_(i) = 0;
     joint_pos_cmd_(i) = joints_[i]->GetAngle(0).Radian();;
@@ -102,6 +110,9 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     m_msr_data.data.cmdJntPos[i] = 0.0;
     m_msr_data.data.cmdJntPosFriOffset[i] = 0.0;
     
+    //init also stiffness and damping
+    m_cmd_data.cmd.jntStiffness[i] = stiffness_(i);
+    m_cmd_data.cmd.jntDamping[i] = damping_(i);
     
   }
   
@@ -114,8 +125,10 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   localAddr.sin_port = htons(remote_port + 1);
 
   if (bind(socketFd, (sockaddr*) &localAddr, sizeof(sockaddr_in)) < 0) {
-    ROS_ERROR("Binding of port failed with ");
+    ROS_ERROR("Binding of port %d failed ",remote_port);
   }
+  else
+		ROS_INFO("Bound to port %d",remote_port);
   
   bzero((char *) &remoteAddr, sizeof(remoteAddr));
 	remoteAddr.sin_family = AF_INET;
@@ -233,7 +246,7 @@ void LWRController::UpdateChild()
     int n = recvfrom(socketFd, (void*) &m_cmd_data, sizeof(m_cmd_data), 0,
 			(sockaddr*) &cliAddr, &cliAddr_len);
     if (sizeof(tFriCmdData) != n) {
-      ROS_ERROR( "bad packet length");
+      ROS_DEBUG( "bad packet length : %d should be %zu", n, sizeof(tFriCmdData));
     }
 
     for(unsigned int i = 0; i < 7; i++) {
@@ -241,6 +254,7 @@ void LWRController::UpdateChild()
       stiffness_(i) = m_cmd_data.cmd.jntStiffness[i];
       damping_(i) = m_cmd_data.cmd.jntDamping[i];
       trq_cmd_(i) = m_cmd_data.cmd.addJntTrq[i];
+      ROS_DEBUG("kuka j%d stiffness %f damping %f",i, stiffness_(i), damping_(i));
     }
 
     if(cnt < 20) {

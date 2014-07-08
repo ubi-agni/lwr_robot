@@ -5,9 +5,11 @@ project(lwr_simulation)
 find_package(catkin REQUIRED COMPONENTS orocos_kdl kuka_lwr_fri)
 
 find_package(Boost REQUIRED COMPONENTS thread)
-find_package(GAZEBO REQUIRED)
-find_package(SDF REQUIRED)
-find_package(Eigen REQUIRED)
+find_package(gazebo REQUIRED)
+find_package(orocos_kdl REQUIRED)
+find_package(kdl_parser REQUIRED)
+
+#find_package(Eigen REQUIRED)
 
 # http://stackoverflow.com/questions/7172670/best-shortest-way-to-join-a-list-in-cmake
 function(JOIN VALUES GLUE OUTPUT)
@@ -24,8 +26,8 @@ include_directories(
   ${Boost_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
   ${GAZEBO_INCLUDE_DIRS}
-  ${SDFormat_INCLUDE_DIRS}
-  ${Eigen_INCLUDE_DIRS}
+  ${orocos_kdl_INCLUDE_DIRS}
+  #${Eigen_INCLUDE_DIRS}
 )
 
 link_directories(${orocos_kdl_LIBRARY_DIRS})
@@ -36,7 +38,7 @@ target_link_libraries(lwr_controller
   ${Boost_LIBRARIES}
   ${catkin_LIBRARIES}
   ${GAZEBO_LIBRARIES}
-  ${SDFormat_LIBRARIES}
+  ${kdl_parser_LIBRARIES}
 )
 
 catkin_package(
