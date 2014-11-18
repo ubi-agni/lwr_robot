@@ -23,7 +23,7 @@ LWRController::~LWRController()
 void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
 {
   // Get then name of the parent model
-  std::string modelName = _sdf->GetParent()->GetValueString("name");
+  std::string modelName = _sdf->GetParent()->Get<std::string>("name");
 
   // Get the world name.
   this->world = _parent->GetWorld();
@@ -44,23 +44,23 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   // get parameter name
   this->robotPrefix = "";
   if (_sdf->HasElement("robotPrefix"))
-    this->robotPrefix = _sdf->GetElement("robotPrefix")->GetValueString();
+    this->robotPrefix = _sdf->GetElement("robotPrefix")->Get<std::string>();
   
   remote_port = 7998;
   if (_sdf->HasElement("remotePort"))
-    this->remote_port = _sdf->GetElement("remotePort")->GetValueDouble();
+    this->remote_port = _sdf->GetElement("remotePort")->Get<double>();
 
   remote = "127.0.0.1";
   if (_sdf->HasElement("remoteIP"))
-    this->remote = _sdf->GetElement("remoteIP")->GetValueString();
+    this->remote = _sdf->GetElement("remoteIP")->Get<std::string>();
 
   chain_start = std::string("calib_") + this->robotPrefix + "_arm_base_link";
   if (_sdf->HasElement("baseLink"))
-    this->chain_start = _sdf->GetElement("baseLink")->GetValueString();
+    this->chain_start = _sdf->GetElement("baseLink")->Get<std::string>();
 
   chain_end = this->robotPrefix + "_arm_7_link";
   if (_sdf->HasElement("toolLink"))
-    this->chain_end = _sdf->GetElement("toolLink")->GetValueString();
+    this->chain_end = _sdf->GetElement("toolLink")->Get<std::string>();
     
   gzdbg << "remote : " << remote << " : " << remote_port << "\n";
   
@@ -68,7 +68,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   // get parameter name
   std::string robotNamespace = "";
   if (_sdf->HasElement("robotNamespace"))
-    robotNamespace = _sdf->GetElement("robotNamespace")->GetValueString();
+    robotNamespace = _sdf->GetElement("robotNamespace")->Get<std::string>();
   
   if (!ros::isInitialized())
   {
@@ -96,7 +96,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     }
     
     if(_sdf->HasElement(joint_name)) {
-      double init = _sdf->GetElement(joint_name)->GetValueDouble();
+      double init = _sdf->GetElement(joint_name)->Get<double>();
       joint->SetAngle(0, init);
     }
     
