@@ -38,8 +38,8 @@
     </collision>
   </link>
   
-  <kuka_lwr_arm parent="world" name="lwr" right="1">
+  <xacro:kuka_lwr_arm parent="world" name="lwr" right="1">
     <origin xyz="0 0 1.1" rpy="0 0 0"/>
-  </kuka_lwr_arm>
+  </xacro:kuka_lwr_arm>
   
 </robot>
