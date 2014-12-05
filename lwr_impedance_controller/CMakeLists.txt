@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(lwr_impedance_controller)
 
-find_package(catkin REQUIRED COMPONENTS rtt_ros geometry_msgs std_msgs message_generation kdl_conversions lwr_fri xeno_clock)
+find_package(catkin REQUIRED COMPONENTS rtt_ros rtt_roscomm geometry_msgs std_msgs message_generation kdl_conversions lwr_fri xeno_clock)
 
 add_message_files(DIRECTORY msg)
 generate_messages(DEPENDENCIES geometry_msgs std_msgs)
 
 catkin_package(
   DEPENDS rtt
-  CATKIN_DEPENDS rtt_ros geometry_msgs std_msgs message_runtime
+  CATKIN_DEPENDS rtt_roscomm geometry_msgs std_msgs message_runtime
 )
 
 find_package(OROCOS-RTT REQUIRED)

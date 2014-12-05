@@ -268,9 +268,11 @@ void LWRController::UpdateChild()
   
   trq_ = stiffness_.asDiagonal() * (joint_pos_cmd_ - joint_pos_) - damping_.asDiagonal() * joint_vel_ + trq_cmd_;
 
+  
   for(unsigned int i = 0; i< 7; i++) {
     joints_[i]->SetForce(0, trq_(i));
   }
+  ROS_DEBUG("kuka pos cmd %f pos current %f trq %f", joint_pos_cmd_(0), joint_pos_(0), trq_(0));
 }
 
 GZ_REGISTER_MODEL_PLUGIN(LWRController);
