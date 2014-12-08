@@ -12,7 +12,10 @@ catkin_package(
 )
 
 find_package(OROCOS-RTT REQUIRED)
+
+find_package(cmake_modules REQUIRED)
 find_package(Eigen REQUIRED)
+
 find_package(orocos_kdl REQUIRED)
 
 include_directories(include ${catkin_INCLUDE_DIRS} ${Eigen_INCLUDE_DIRS})
