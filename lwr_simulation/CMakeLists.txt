@@ -2,12 +2,13 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(lwr_simulation)
 
-find_package(catkin REQUIRED COMPONENTS orocos_kdl kuka_lwr_fri)
+find_package(catkin REQUIRED COMPONENTS kuka_lwr_fri)
 
 find_package(Boost REQUIRED COMPONENTS thread)
 find_package(gazebo REQUIRED)
 find_package(orocos_kdl REQUIRED)
 find_package(kdl_parser REQUIRED)
+
 
 #find_package(Eigen REQUIRED)
 
@@ -39,6 +40,7 @@ target_link_libraries(lwr_controller
   ${catkin_LIBRARIES}
   ${GAZEBO_LIBRARIES}
   ${kdl_parser_LIBRARIES}
+  ${orocos_kdl_LIBRARIES}
 )
 
 catkin_package(
