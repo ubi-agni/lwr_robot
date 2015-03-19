@@ -102,9 +102,9 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     
     // stiffness_(i) = 200.0;
     // damping_(i) = 5.0;
-    stiffness_(i) = 3000.0;
-    damping_(i) = 5.0;
-    trq_cmd_(i) = 0;
+    stiffness_(i) = LWRSIM_DEFAULT_STIFFNESS;
+    damping_(i) = LWRSIM_DEFAULT_DAMPING;
+    trq_cmd_(i) = LWRSIM_DEFAULT_TRQ_CMD;
     joint_pos_cmd_(i) = joints_[i]->GetAngle(0).Radian();;
     
     m_msr_data.data.cmdJntPos[i] = 0.0;
@@ -137,7 +137,8 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   
   bzero((char *) &m_msr_data, sizeof(tFriMsrData));
 	
-  m_msr_data.robot.control = FRI_CTRL_JNT_IMP;
+  //m_msr_data.robot.control = FRI_CTRL_JNT_IMP;
+  m_msr_data.robot.control = FRI_CTRL_POSITION;
   m_msr_data.intf.state = FRI_STATE_MON;
   m_msr_data.robot.power = 0xFFFF;
 
@@ -200,7 +201,7 @@ void LWRController::UpdateChild()
   m_msr_data.data.msrCartPos[9] = f.M.data[7];
   m_msr_data.data.msrCartPos[10] = f.M.data[8];
   m_msr_data.data.msrCartPos[11] = f.p.data[2];
-  
+
   jc->JntToJac(pos, jac);
   jac.changeRefFrame(KDL::Frame(f.Inverse().M));
   //Kuka uses Tx, Ty, Tz, Rz, Ry, Rx convention, so we need to swap Rz and Rx
@@ -208,7 +209,7 @@ void LWRController::UpdateChild()
   for ( int i = 0; i < FRI_CART_VEC; i++)
     for ( int j = 0; j < LBR_MNJ; j++)
       m_msr_data.data.jacobian[i*LBR_MNJ+j] = jac.data(i,j);
-    
+
   dyn->JntToMass(pos, H);
   for(unsigned int i=0;i<LBR_MNJ;i++) {
     for(unsigned int j=0;j<LBR_MNJ;j++) {
@@ -251,9 +252,14 @@ void LWRController::UpdateChild()
 
     for(unsigned int i = 0; i < 7; i++) {
       joint_pos_cmd_(i) = m_cmd_data.cmd.jntPos[i];
-      stiffness_(i) = m_cmd_data.cmd.jntStiffness[i];
-      damping_(i) = m_cmd_data.cmd.jntDamping[i];
-      trq_cmd_(i) = m_cmd_data.cmd.addJntTrq[i];
+
+      if( m_msr_data.robot.control == FRI_CTRL_JNT_IMP )
+      {
+        stiffness_(i) = m_cmd_data.cmd.jntStiffness[i];
+        damping_(i) = m_cmd_data.cmd.jntDamping[i];
+        trq_cmd_(i) = m_cmd_data.cmd.addJntTrq[i];
+      }
+
       ROS_DEBUG("kuka j%d stiffness %f damping %f",i, stiffness_(i), damping_(i));
     }
 

@@ -47,6 +47,10 @@
 #include <unistd.h> /* for close() */
 #include <arpa/inet.h>/* for inet_Addr etc*/
 
+#define LWRSIM_DEFAULT_STIFFNESS (20000.0)
+#define LWRSIM_DEFAULT_DAMPING (10.0)
+#define LWRSIM_DEFAULT_TRQ_CMD (0.0)
+
 namespace gazebo
 {
 
