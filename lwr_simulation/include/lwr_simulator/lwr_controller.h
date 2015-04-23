@@ -47,8 +47,9 @@
 #include <unistd.h> /* for close() */
 #include <arpa/inet.h>/* for inet_Addr etc*/
 
-#define LWRSIM_DEFAULT_STIFFNESS (20000.0)
-#define LWRSIM_DEFAULT_DAMPING (10.0)
+#define LWRSIM_DEFAULT_STIFFNESS (200.0)
+#define LWRSIM_DEFAULT_DAMPING (5.0)
+#define LWRSIM_DEFAULT_IGAIN (10.0)
 #define LWRSIM_DEFAULT_TRQ_CMD (0.0)
 
 namespace gazebo
@@ -102,6 +103,8 @@ namespace gazebo
         Eigen::Matrix<double, 7, 1> joint_vel_;
         Eigen::Matrix<double, 7, 1> stiffness_;
         Eigen::Matrix<double, 7, 1> damping_;
+        Eigen::Matrix<double, 7, 1> i_gain_;
+        Eigen::Matrix<double, 7, 1> i_term_;
         Eigen::Matrix<double, 7, 1> trq_cmd_;
         Eigen::Matrix<double, 7, 1> trq_;
         

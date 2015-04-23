@@ -104,6 +104,8 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     // damping_(i) = 5.0;
     stiffness_(i) = LWRSIM_DEFAULT_STIFFNESS;
     damping_(i) = LWRSIM_DEFAULT_DAMPING;
+    i_gain_(i) = LWRSIM_DEFAULT_IGAIN;
+    i_term_(i) = 0.0;
     trq_cmd_(i) = LWRSIM_DEFAULT_TRQ_CMD;
     joint_pos_cmd_(i) = joints_[i]->GetAngle(0).Radian();;
     
@@ -252,7 +254,7 @@ void LWRController::UpdateChild()
 
     for(unsigned int i = 0; i < 7; i++) {
       joint_pos_cmd_(i) = m_cmd_data.cmd.jntPos[i];
-
+      
       if( m_msr_data.robot.control == FRI_CTRL_JNT_IMP )
       {
         stiffness_(i) = m_cmd_data.cmd.jntStiffness[i];
@@ -272,7 +274,11 @@ void LWRController::UpdateChild()
       --cnt;
   }
   
-  trq_ = stiffness_.asDiagonal() * (joint_pos_cmd_ - joint_pos_) - damping_.asDiagonal() * joint_vel_ + trq_cmd_;
+  double delta_t=0.001; // (assume 1 ms loop)
+  i_term_ = i_term_ + (joint_pos_cmd_ - joint_pos_)* delta_t;
+  
+  
+  trq_ = stiffness_.asDiagonal() * (joint_pos_cmd_ - joint_pos_) - damping_.asDiagonal() * joint_vel_ +  i_gain_.asDiagonal() * i_term_ +  trq_cmd_;
 
   
   for(unsigned int i = 0; i< 7; i++) {
