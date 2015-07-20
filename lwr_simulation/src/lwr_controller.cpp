@@ -38,7 +38,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   // Listen to the update event. This event is broadcast every
   // simulation iteration.
   this->updateConnection = event::Events::ConnectWorldUpdateBegin(
-      boost::bind(&LWRController::UpdateChild, this));
+      boost::bind(&LWRController::UpdateChild, this, _1));
   gzdbg << "plugin model name: " << modelName << "\n";
 
   // get parameter name
@@ -104,10 +104,8 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     // damping_(i) = 5.0;
     stiffness_(i) = LWRSIM_DEFAULT_STIFFNESS;
     damping_(i) = LWRSIM_DEFAULT_DAMPING;
-    i_gain_(i) = LWRSIM_DEFAULT_IGAIN;
-    i_term_(i) = 0.0;
     trq_cmd_(i) = LWRSIM_DEFAULT_TRQ_CMD;
-    joint_pos_cmd_(i) = joints_[i]->GetAngle(0).Radian();;
+    joint_pos_cmd_(i) = joints_[i]->GetAngle(0).Radian();
     
     m_msr_data.data.cmdJntPos[i] = 0.0;
     m_msr_data.data.cmdJntPosFriOffset[i] = 0.0;
@@ -150,6 +148,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   m_msr_data.intf.desiredMsrSampleTime = 0.001;
   
   cnt = 0;
+  current_time_ = common::Time::GetWallTime();
 }
 
 void LWRController::GetRobotChain()
@@ -170,7 +169,7 @@ void LWRController::GetRobotChain()
 
 ////////////////////////////////////////////////////////////////////////////////
 // Update the controller
-void LWRController::UpdateChild()
+void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 {
   struct sockaddr cliAddr;
   unsigned int cliAddr_len;
@@ -180,25 +179,38 @@ void LWRController::UpdateChild()
   KDL::JntArray pos(7);
   KDL::JntArray grav(7);
 
+  previous_time_ = current_time_;
+  current_time_ = update_info.realTime;
+  common::Time period = current_time_-previous_time_;
+  // store the real period
+  m_msr_data.intf.desiredMsrSampleTime=period.Double();
+  
   for(unsigned int i = 0; i< 7; i++)
   {
+    //joint_pos_prev_(i) = joint_pos_(i);
     m_msr_data.data.cmdJntPos[i] = m_msr_data.data.msrJntPos[i] = pos(i) = joint_pos_(i) = joints_[i]->GetAngle(0).Radian();
+    // filter is worth less here, as the joint_vel is not transmitted to FRI
+    //joint_vel_(i) = (joint_pos_(i) - joint_pos_prev_(i))*(0.2/period.Float()) + joint_vel_(i)*0.8 ;
     joint_vel_(i) = joints_[i]->GetVelocity(0);
   }
 
-  /*dyn->JntToGravity(pos, grav);*/
+  dyn->JntToGravity(pos, grav);
+  for(unsigned int i = 0; i< 7; i++)
+  {
+    m_msr_data.data.gravity[i]=grav(i);
+  }
+
   fk->JntToCart(pos, f);
-  
   m_msr_data.data.msrCartPos[0] = f.M.data[0];
   m_msr_data.data.msrCartPos[1] = f.M.data[1];
   m_msr_data.data.msrCartPos[2] = f.M.data[2];
   m_msr_data.data.msrCartPos[3] = f.p.data[0];
-  
+
   m_msr_data.data.msrCartPos[4] = f.M.data[3];
   m_msr_data.data.msrCartPos[5] = f.M.data[4];
   m_msr_data.data.msrCartPos[6] = f.M.data[5];
   m_msr_data.data.msrCartPos[7] = f.p.data[1];
-  
+
   m_msr_data.data.msrCartPos[8] = f.M.data[6];
   m_msr_data.data.msrCartPos[9] = f.M.data[7];
   m_msr_data.data.msrCartPos[10] = f.M.data[8];
@@ -218,7 +230,7 @@ void LWRController::UpdateChild()
       m_msr_data.data.massMatrix[LBR_MNJ*i+j] = H.data(i, j);
     }
   }
-  
+
   if(cnt > 10)
   {
     m_msr_data.intf.state = FRI_STATE_CMD;
@@ -274,17 +286,14 @@ void LWRController::UpdateChild()
       --cnt;
   }
   
-  double delta_t=0.001; // (assume 1 ms loop)
-  i_term_ = i_term_ + (joint_pos_cmd_ - joint_pos_)* delta_t;
-  
-  
-  trq_ = stiffness_.asDiagonal() * (joint_pos_cmd_ - joint_pos_) - damping_.asDiagonal() * joint_vel_ +  i_gain_.asDiagonal() * i_term_ +  trq_cmd_;
+  trq_ = stiffness_.asDiagonal() * (joint_pos_cmd_ - joint_pos_) - damping_.asDiagonal() * joint_vel_ + trq_cmd_;
 
   
   for(unsigned int i = 0; i< 7; i++) {
-    joints_[i]->SetForce(0, trq_(i));
+    // add gravity compensation
+    joints_[i]->SetForce(0, trq_(i) + grav(i));
   }
-  ROS_DEBUG("kuka pos cmd %f pos current %f trq %f", joint_pos_cmd_(0), joint_pos_(0), trq_(0));
+  ROS_DEBUG("kuka pos cmd %f pos current %f vel curr %f trq_cmd %f trq %f, grav %f", joint_pos_cmd_(1), joint_pos_(1), joint_vel_(1), trq_cmd_(1), trq_(1), grav(1));
 }
 
 GZ_REGISTER_MODEL_PLUGIN(LWRController);

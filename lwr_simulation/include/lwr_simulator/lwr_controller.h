@@ -48,8 +48,7 @@
 #include <arpa/inet.h>/* for inet_Addr etc*/
 
 #define LWRSIM_DEFAULT_STIFFNESS (200.0)
-#define LWRSIM_DEFAULT_DAMPING (5.0)
-#define LWRSIM_DEFAULT_IGAIN (10.0)
+#define LWRSIM_DEFAULT_DAMPING (1.0)
 #define LWRSIM_DEFAULT_TRQ_CMD (0.0)
 
 namespace gazebo
@@ -68,7 +67,7 @@ namespace gazebo
       public: void Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf );
 
       /// \brief Update the controller
-      protected: virtual void UpdateChild();
+      protected: virtual void UpdateChild(const common::UpdateInfo &update_info);
       
       void GetRobotChain();
       
@@ -90,32 +89,32 @@ namespace gazebo
         event::ConnectionPtr updateConnection;
         
         KDL::Chain chain_;
-	      KDL::ChainDynParam *dyn;
-	      KDL::ChainFkSolverPos_recursive *fk;
-	      KDL::ChainJntToJacSolver *jc;
+        KDL::ChainDynParam *dyn;
+        KDL::ChainFkSolverPos_recursive *fk;
+        KDL::ChainJntToJacSolver *jc;
 
         std::string base_frame_;
-	
-	      int cnt;
+
+        int cnt;
         
         Eigen::Matrix<double, 7, 1> joint_pos_;
+        Eigen::Matrix<double, 7, 1> joint_pos_prev_;
         Eigen::Matrix<double, 7, 1> joint_pos_cmd_;
         Eigen::Matrix<double, 7, 1> joint_vel_;
         Eigen::Matrix<double, 7, 1> stiffness_;
         Eigen::Matrix<double, 7, 1> damping_;
-        Eigen::Matrix<double, 7, 1> i_gain_;
-        Eigen::Matrix<double, 7, 1> i_term_;
         Eigen::Matrix<double, 7, 1> trq_cmd_;
         Eigen::Matrix<double, 7, 1> trq_;
+        common::Time previous_time_, current_time_;
         
-	      int remote_port;
-	      std::string remote;
-	
+        int remote_port;
+        std::string remote;
+
         int socketFd;
         struct sockaddr_in localAddr, remoteAddr;
 
         tFriMsrData m_msr_data;
-	      tFriCmdData m_cmd_data;
+        tFriCmdData m_cmd_data;
    };
 
 }
