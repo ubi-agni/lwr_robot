@@ -64,11 +64,28 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     
   gzdbg << "remote : " << remote << " : " << remote_port << "\n";
   
-  
   // get parameter name
   std::string robotNamespace = "";
   if (_sdf->HasElement("robotNamespace"))
     robotNamespace = _sdf->GetElement("robotNamespace")->Get<std::string>();
+  
+  payloadMass_ = 0.0;
+  if (_sdf->HasElement("payloadMass"))
+    payloadMass_ = _sdf->GetElement("payloadMass")->Get<double>();
+  
+  
+  if (_sdf->HasElement("payloadCOG"))
+    payloadCOG_ = _sdf->GetElement("payloadCOG")->Get<math::Vector3>();
+  else
+    payloadCOG_ = math::Vector3(0,0,0);
+    
+  if (_sdf->HasElement("gravityDirection"))
+    gravityDirection_ = _sdf->GetElement("gravityDirection")->Get<math::Vector3>();
+  else
+  {
+    ROS_WARN("Gravity direction not given to lwrcontroller plugin, using default. \nThis will only work if you robot is standing on the floor !");
+    gravityDirection_ = math::Vector3(0,0,-9.81);
+  }
   
   if (!ros::isInitialized())
   {
@@ -162,7 +179,24 @@ void LWRController::GetRobotChain()
 
   my_tree.getChain(chain_start, chain_end, chain_);
   
-  dyn = new KDL::ChainDynParam(chain_, KDL::Vector(0.0, 0.0, -9.81));
+  // get last segment
+  KDL::Segment *segment_ee_ptr = &(chain_.segments[chain_.getNrOfSegments()-1]);
+  // get its dynamic parameters
+  KDL::RigidBodyInertia inertia_ee = segment_ee_ptr->getInertia();
+  std::string name_ee = segment_ee_ptr->getName();
+  double m_ee = inertia_ee.getMass();
+  KDL::Vector cog_ee = inertia_ee.getCOG();
+  KDL::RotationalInertia rot_inertia_ee = inertia_ee.getRotationalInertia();
+
+  // add payload cog offset and mass
+  KDL::Vector payload_cog_offset(payloadCOG_[0], payloadCOG_[1], payloadCOG_[2]);
+  m_ee += payloadMass_;
+  cog_ee += payload_cog_offset;
+
+  // set the new inertia at the end-effector.
+  segment_ee_ptr->setInertia(KDL::RigidBodyInertia(m_ee, cog_ee, rot_inertia_ee)); 
+
+  dyn = new KDL::ChainDynParam(chain_, KDL::Vector(gravityDirection_[0],gravityDirection_[1],gravityDirection_[2]));
   fk = new KDL::ChainFkSolverPos_recursive(chain_);
   jc = new KDL::ChainJntToJacSolver(chain_);
 }

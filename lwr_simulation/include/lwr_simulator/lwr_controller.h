@@ -81,7 +81,11 @@ namespace gazebo
         std::string robotPrefix;
         std::vector<gazebo::physics::JointPtr>  joints_;
         std::string chain_start, chain_end;
-          
+        
+        double payloadMass_;
+        math::Vector3 payloadCOG_;
+        math::Vector3 gravityDirection_;
+        
          // Pointer to the model
         physics::WorldPtr world;
 
