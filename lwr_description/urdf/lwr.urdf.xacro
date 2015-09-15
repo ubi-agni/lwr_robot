@@ -4,7 +4,7 @@
        xmlns:interface="http://playerstage.sourceforge.net/gazebo/xmlschema/#interface"
        xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <xacro:include filename="$(find lwr_defs)/defs/util_defs.xml"/>
+  <xacro:include filename="$(find lwr_description)/urdf/util.urdf.xacro"/>
 
   <property name="arm_elem_base_mass" value="2.0"/>
   <property name="arm_elem_link_mass" value="2.0"/>
@@ -34,14 +34,14 @@
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="package://lwr_defs/meshes/lwr/base.STL"/>
+          <mesh filename="package://lwr_description/meshes/lwr/base.STL"/>
         </geometry>
         <material name="Orange"/>
       </visual>
       <collision>
         <origin xyz="0 0 0.055" rpy="0 0 ${M_PI}"/>
         <geometry>
-<!--          <mesh filename="package://lwr_defs/meshes/lwr/convex/arm_base_convex.stl"/> -->
+<!--          <mesh filename="package://lwr_description/meshes/lwr/convex/arm_base_convex.stl"/> -->
           <cylinder radius="0.07" length="0.11"/>
         </geometry>
       </collision>
@@ -77,7 +77,7 @@
       <visual>
         <origin xyz="0 0 -0.008" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="package://lwr_defs/meshes/lwr/link_1.STL"/>
+          <mesh filename="package://lwr_description/meshes/lwr/link_1.STL"/>
         </geometry>
         <material name="Orange"/>
       </visual>
@@ -85,7 +85,7 @@
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="package://lwr_defs/meshes/lwr/convex/arm_segment_a_convex.stl"/>
+          <mesh filename="package://lwr_description/meshes/lwr/convex/arm_segment_a_convex.stl"/>
         </geometry>
       </collision>
  -->     
@@ -147,7 +147,7 @@
       <visual>
         <origin xyz="0 0 0.0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="package://lwr_defs/meshes/lwr/link_2.STL"/>
+          <mesh filename="package://lwr_description/meshes/lwr/link_2.STL"/>
         </geometry>
         <material name="Orange"/>
       </visual>
@@ -155,7 +155,7 @@
       <collision>
         <origin xyz="0 0 0.2" rpy="${M_PI} 0 0"/>
         <geometry>
-          <mesh filename="package://lwr_defs/meshes/lwr/convex/arm_segment_b_convex.stl"/>
+          <mesh filename="package://lwr_description/meshes/lwr/convex/arm_segment_b_convex.stl"/>
         </geometry>
       </collision>
 -->
@@ -217,7 +217,7 @@
       <visual>
         <origin xyz="0 0 -0.008" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="package://lwr_defs/meshes/lwr/link_3.STL"/>
+          <mesh filename="package://lwr_description/meshes/lwr/link_3.STL"/>
         </geometry>
         <material name="Orange"/>
       </visual>
@@ -225,7 +225,7 @@
       <collision>
         <origin xyz="0 0 0" rpy="0 0 ${M_PI}"/>
         <geometry>
-          <mesh filename="package://lwr_defs/meshes/lwr/convex/arm_segment_a_convex.stl"/>
+          <mesh filename="package://lwr_description/meshes/lwr/convex/arm_segment_a_convex.stl"/>
         </geometry>
       </collision>
 -->
@@ -287,7 +287,7 @@
       <visual>
         <origin xyz="0 0 0.0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="package://lwr_defs/meshes/lwr/link_4.STL"/>
+          <mesh filename="package://lwr_description/meshes/lwr/link_4.STL"/>
         </geometry>
         <material name="Orange"/>
       </visual>
@@ -295,7 +295,7 @@
       <collision>
         <origin xyz="0 0 0.2" rpy="0 ${M_PI} 0"/>
         <geometry>
-          <mesh filename="package://lwr_defs/meshes/lwr/convex/arm_segment_b_convex.stl"/>
+          <mesh filename="package://lwr_description/meshes/lwr/convex/arm_segment_b_convex.stl"/>
         </geometry>
       </collision>
 -->
@@ -357,7 +357,7 @@
       <visual>
         <origin xyz="0 0 -0.008" rpy="0 0 0"/>
         <geometry name="${name}_arm_5_geom">
-          <mesh filename="package://lwr_defs/meshes/lwr/link_5.STL"/>
+          <mesh filename="package://lwr_description/meshes/lwr/link_5.STL"/>
         </geometry>
         <material name="Orange"/>
       </visual>
@@ -365,7 +365,7 @@
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="package://lwr_defs/meshes/lwr/convex/arm_segment_last_convex.stl"/>
+          <mesh filename="package://lwr_description/meshes/lwr/convex/arm_segment_last_convex.stl"/>
         </geometry>
       </collision>
 -->
@@ -426,7 +426,7 @@
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="package://lwr_defs/meshes/lwr/link_6.STL"/>
+          <mesh filename="package://lwr_description/meshes/lwr/link_6.STL"/>
         </geometry>
         <material name="Grey"/>
       </visual>
@@ -434,7 +434,7 @@
       <collision>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="package://lwr_defs/meshes/lwr/convex/arm_wrist_convex.stl"/>
+          <mesh filename="package://lwr_description/meshes/lwr/convex/arm_wrist_convex.stl"/>
         </geometry>
       </collision>
     </link>
@@ -473,7 +473,7 @@
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
-          <mesh filename="package://lwr_defs/meshes/lwr/link_7.STL"/>
+          <mesh filename="package://lwr_description/meshes/lwr/link_7.STL"/>
         </geometry>
         <material name="Grey"/>
       </visual>

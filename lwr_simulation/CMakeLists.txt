@@ -22,6 +22,13 @@ JOIN("${GAZEBO_LDFLAGS}" " " LD_FLAGS)
 
 message(STATUS "lwr_simulation: using LD_FLAGS = \"${LD_FLAGS}\"")
 
+catkin_package(
+  CATKIN_DEPENDS
+    gazebo_ros
+  LIBRARIES
+    lwr_controller
+)
+
 include_directories(
   include
   ${Boost_INCLUDE_DIRS}
@@ -43,12 +50,7 @@ target_link_libraries(lwr_controller
   ${orocos_kdl_LIBRARIES}
 )
 
-catkin_package(
-  CATKIN_DEPENDS
-    gazebo_ros
-  LIBRARIES
-    lwr_controller
-)
+
 
 # Install targets
 install(TARGETS
