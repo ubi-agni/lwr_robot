@@ -54,7 +54,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   if (_sdf->HasElement("remoteIP"))
     this->remote = _sdf->GetElement("remoteIP")->Get<std::string>();
 
-  chain_start = std::string("calib_") + this->robotPrefix + "_arm_base_link";
+  chain_start = this->robotPrefix + "_arm_base_link";
   if (_sdf->HasElement("baseLink"))
     this->chain_start = _sdf->GetElement("baseLink")->Get<std::string>();
 
@@ -78,7 +78,9 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     payloadCOG_ = _sdf->GetElement("payloadCOG")->Get<math::Vector3>();
   else
     payloadCOG_ = math::Vector3(0,0,0);
-    
+  
+  gzdbg << "payloadCOG : " << payloadCOG_[0] << ", " << payloadCOG_[1] << ", " << payloadCOG_[2] << "\n";
+  
   if (_sdf->HasElement("gravityDirection"))
     gravityDirection_ = _sdf->GetElement("gravityDirection")->Get<math::Vector3>();
   else
@@ -86,7 +88,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     ROS_WARN("Gravity direction not given to lwrcontroller plugin, using default. \nThis will only work if you robot is standing on the floor !");
     gravityDirection_ = math::Vector3(0,0,-9.81);
   }
-  
+  gzdbg << "gravity Dir : " << gravityDirection_[0] << ", " << gravityDirection_[1] << ", " << gravityDirection_[2] << "\n";
   if (!ros::isInitialized())
   {
     int argc = 0;
@@ -94,9 +96,8 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     ros::init(argc,argv,"gazebo",ros::init_options::NoSigintHandler|ros::init_options::AnonymousName);
   }
   this->rosnode_ = new ros::NodeHandle(robotNamespace);
-      
   GetRobotChain();
-    
+  
   for(unsigned int i = 0; i< 7; i++)
   {
     // fill in gazebo joints pointer
@@ -132,6 +133,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     m_cmd_data.cmd.jntDamping[i] = damping_(i);
     
   }
+  gzdbg << "Initialized joints" << "\n";
   
   socketFd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
   setsockopt(socketFd, SOL_SOCKET, SO_REUSEADDR, 0, 0);
@@ -179,6 +181,7 @@ void LWRController::GetRobotChain()
 
   my_tree.getChain(chain_start, chain_end, chain_);
   
+  ROS_ASSERT_MSG(chain_.getNrOfSegments()>0,"Chain has no elements");
   // get last segment
   KDL::Segment *segment_ee_ptr = &(chain_.segments[chain_.getNrOfSegments()-1]);
   // get its dynamic parameters
