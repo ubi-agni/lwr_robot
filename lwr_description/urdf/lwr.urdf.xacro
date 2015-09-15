@@ -20,10 +20,10 @@
     <joint name="${parent}_${name}_arm_base_joint" type="fixed">
       <insert_block name="origin"/>
       <parent link="${parent}_link"/>
-      <child link="calib_${name}_arm_base_link"/>
+      <child link="${name}_arm_base_link"/>
     </joint>
 
-    <link name="calib_${name}_arm_base_link">
+    <link name="${name}_arm_base_link">
       <inertial>
         <mass value="${arm_elem_base_mass}"/>
         <origin xyz="0 0 0.055"/>
@@ -62,7 +62,7 @@
                          k_position="30"
                          k_velocity="30"/>
       <dynamics damping="1.0"/>
-      <parent link="calib_${name}_arm_base_link"/>
+      <parent link="${name}_arm_base_link"/>
       <child link="${name}_arm_1_link"/>
     </joint>
 
