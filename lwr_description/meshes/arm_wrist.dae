@@ -10,8 +10,8 @@
 		</contributor>
 		<created>2010-07-28T12:40:44.496669</created>
 		<modified>2010-07-28T12:40:44.496712</modified>
-		<unit meter="1" name="meter"/>
-		<up_axis>Z_UP</up_axis>
+		<unit meter="0.01" name="centimeter"/>
+		<up_axis>Y_UP</up_axis>
 	</asset>
 	<library_effects>
 		<effect id="Silver-fx" name="Silver-fx">

@@ -38,9 +38,14 @@
     </collision>
   </link>
   
-  <xacro:kuka_lwr_arm parent="world" name="lwr" right="1">
+  <!-- First (shoulder) element of the arm. Fixed to its parent. -->
+  <joint name="world_lwr_arm_base_joint" type="fixed">
     <origin xyz="0 0 1.1" rpy="0 0 0"/>
-  </xacro:kuka_lwr_arm>
+    <parent link="world_link"/>
+    <child link="lwr_arm_base_link"/>
+  </joint>
+
+  <xacro:kuka_lwr_arm name="lwr_" />
   <xacro:lwr_arm_gazebo_controller namespace="" prefix="lwr" port="49938"/>
   
 </robot>
