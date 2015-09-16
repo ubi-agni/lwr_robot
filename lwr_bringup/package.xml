@@ -1,11 +1,12 @@
 <package>
   <name>lwr_bringup</name>
-  <version>0.0.1</version>
+  <version>0.0.2</version>
   <description>LWR bringup.</description>
-  <maintainer email="konradb3@gmail.com">Konrad Banachowicz</maintainer>
+  <maintainer email="gwalck@techfak.uni-bielefeld.de">Guillaume Walck</maintainer>
 
   <license>BSD</license>
 
+  <author>Guillaume Walck</author>
   <author>Konrad Banachowicz</author>
 
   <buildtool_depend>catkin</buildtool_depend>
