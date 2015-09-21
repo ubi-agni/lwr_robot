@@ -21,11 +21,18 @@ end
 
 -- get the prefix
 local prefix=""
-local prefix_arg=...
+local prefix_arg,port_arg=...
 if prefix_arg then
   print("using prefix "..prefix_arg)
   prefix = prefix_arg
 end
+if port_arg then
+  print("using port "..port_arg)
+  port = port_arg
+else
+  port = 49938
+end
+
 d:import("agni_rtt_services")
 
 -- create LuaComponent
@@ -42,7 +49,7 @@ kuka_controller:exec_file(pathOfThisFile.."kuka_controller.lua")
 
 -- configure the component
 kuka_controller:getProperty("namespace"):set(prefix)
-kuka_controller:getProperty("port"):set(49938)
+kuka_controller:getProperty("port"):set(port)
 kuka_controller:getProperty("controller_name"):set(prefix.."/kuka_controller")
 
 kuka_controller:configure()
