@@ -19,13 +19,14 @@ else
     -- TODO complain and exit if deployer not found
 end
 
--- get the prefix
+-- get the prefix and port from args
 local prefix=""
 local prefix_arg,port_arg=...
 if prefix_arg then
   print("using prefix "..prefix_arg)
   prefix = prefix_arg
 end
+
 if port_arg then
   print("using port "..port_arg)
   port = port_arg
