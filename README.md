@@ -13,7 +13,7 @@ Quick start
 * test the movement of the robot by sending a trajectory goal
 
 ```
-rostopic pub /arm_trajectory_controller/follow_joint_trajectory/goal control_msgs/FollowJointTrajectoryActionGoal '{
+rostopic pub /lwr/arm_trajectory_controller/follow_joint_trajectory/goal control_msgs/FollowJointTrajectoryActionGoal '{
 header: {seq: 0, stamp: {secs: 0, nsecs: 0}, frame_id: "1"}, 
 goal_id: {stamp: {secs: 0, nsecs: 0}, id: }, 
 goal: {

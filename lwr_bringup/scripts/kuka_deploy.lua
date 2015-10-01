@@ -34,28 +34,66 @@ else
   port = 49938
 end
 
-d:import("agni_rtt_services")
-
 -- create LuaComponent
 name = prefix.."kuka_controller"
-d:loadComponent(name, "OCL::LuaComponent")
-d:addPeer(name, "Deployer")
--- ... and get a handle to it
-local kuka_controller = d:getPeer(name)
--- add service lua to new component named name
-d:loadService(name,"Lua")
- 
--- load the Lua hooks
-kuka_controller:exec_file(pathOfThisFile.."kuka_controller.lua")
 
--- configure the component
-kuka_controller:getProperty("namespace"):set(prefix)
-kuka_controller:getProperty("port"):set(port)
-kuka_controller:getProperty("controller_name"):set(prefix.."/kuka_controller")
+d:import("lwr_fri")
+d:import("oro_joint_state_publisher")
+d:import("rtt_sensor_msgs")
+d:import("rtt_diagnostic_msgs")
 
-kuka_controller:configure()
+namespace = prefix
+  
+diagname = namespace.."LWRDiag"
+d:loadComponent(diagname, "FRIDiagnostics")
+d:setActivity(diagname, 0.01, 2, rtt.globals.ORO_SCHED_RT)
+diag = d:getPeer(diagname)
+diag:configure()
+-- add dia to the parent component peers
+d:addPeer(tcName, diagname)        
 
--- stat the component
-kuka_controller:start()
+-- deploy FRI and advertize its input/output
+friname = namespace.."FRI"
+d:loadComponent(friname, "FRIComponent")
+d:setActivity(friname, 0, 80, rtt.globals.ORO_SCHED_RT)
+fri = d:getPeer(friname)
+fri:getProperty("fri_port"):set(port)
+fri:configure()
+  
+-- add fri to the parent component peers
+d:addPeer(tcName, friname)  
+
+-- deploy joint state publisher
+jspname = namespace.."JntPub"
+d:loadComponent(jspname, "JointStatePublisher")
+d:setActivity(jspname, 0.01, 10, rtt.globals.ORO_SCHED_RT)
+jsp = d:getPeer(jspname)
+joint_names = jsp:getProperty("joint_names")
+joint_names:get():resize(7)
+for i=0,6,1 do
+  joint_names[i] = namespace.."_arm_"..i.."_joint"
+end
+jsp:configure()
+-- add jsp to the parent component peers
+d:addPeer(tcName, jspname)
+
+-- internal connection
+d:connect(friname..".RobotState", diagname..".RobotState", rtt.Variable("ConnPolicy"))
+d:connect(friname..".FRIState", diagname..".FRIState", rtt.Variable("ConnPolicy"))
+d:connect(friname..".JointPosition", jspname..".JointPosition", rtt.Variable("ConnPolicy"))
+d:connect(friname..".JointVelocity", jspname..".JointVelocity", rtt.Variable("ConnPolicy"))
+d:connect(friname..".JointTorque", jspname..".JointEffort", rtt.Variable("ConnPolicy"))
+
+-- ROS in out
+local ros=rtt.provides("ros")
+d:stream(diagname..".Diagnostics",ros:topic(namespace.."/diagnostics"))
+d:stream(jspname..".joint_state",ros:topic(namespace.."/joint_states"))
+
+print(namespace.."kuka_controller configured")
+
+-- stat the components
+fri:start()
+diag:start()
+jsp:start()
 
 print("finished loading "..prefix.."kuka")
