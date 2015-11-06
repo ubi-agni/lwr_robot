@@ -48,8 +48,28 @@
 #include <arpa/inet.h>/* for inet_Addr etc*/
 
 #define LWRSIM_DEFAULT_STIFFNESS (200.0)
+#define LWRSIM_DEFAULT_CARTSTIFFNESSFORCE (200.0)
+#define LWRSIM_DEFAULT_CARTSTIFFNESSTORQUE (30.0)
+#define LWRSIM_DEFAULT_CARTDAMPING (0.7)
 #define LWRSIM_DEFAULT_DAMPING (1.0)
 #define LWRSIM_DEFAULT_TRQ_CMD (0.0)
+
+// OpenKC compatibility
+#define OKC_FRI_START 1
+#define OKC_FRI_STOP 2
+#define OKC_RESET_STATUS 3
+#define OKC_SET_CP_STIFFNESS_DAMPING 4
+#define OKC_SET_AXIS_STIFFNESS_DAMPING 5
+#define OKC_SWITCH_CP_CONTROL 6
+#define OKC_SWITCH_AXIS_CONTROL 7
+#define OKC_SWITCH_GRAVCOMP 8
+#define OKC_SWITCH_POSITION 9
+#define OKC_MOVE_START_POSITION 10
+#define OKC_RESET_COUNTER 11
+
+#define SWITCH_CTRL_MODE  21
+
+#define EPSILON_DET   0.0001
 
 namespace gazebo
 {
@@ -72,6 +92,8 @@ namespace gazebo
       void GetRobotChain();
       
       private:
+      
+        bool isValidRotation(KDL::Rotation &rot);
         /*
          *  \brief pointer to ros node
          */
@@ -109,6 +131,14 @@ namespace gazebo
         Eigen::Matrix<double, 7, 1> damping_;
         Eigen::Matrix<double, 7, 1> trq_cmd_;
         Eigen::Matrix<double, 7, 1> trq_;
+        Eigen::Matrix<double, 7, 7> mass_;
+        
+        Eigen::Matrix<double, 6, 1> cart_pos_cmd_;
+        KDL::Frame T_old_;
+        Eigen::Matrix<double, 6, 1> ext_tcp_ft_;
+        Eigen::Matrix<double, 6, 1> cart_stiffness_;
+        Eigen::Matrix<double, 6, 1> cart_damping_;
+        
         common::Time previous_time_, current_time_;
         
         int remote_port;

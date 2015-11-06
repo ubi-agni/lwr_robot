@@ -98,7 +98,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   this->rosnode_ = new ros::NodeHandle(robotNamespace);
   GetRobotChain();
   
-  for(unsigned int i = 0; i< 7; i++)
+  for(unsigned int i = 0; i< LBR_MNJ; i++)
   {
     // fill in gazebo joints pointer
     std::string joint_name = this->robotPrefix + "_arm_" + (char)(i + 48) + "_joint";
@@ -133,6 +133,21 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     m_cmd_data.cmd.jntDamping[i] = damping_(i);
     
   }
+  
+  for(unsigned int i = 0; i< FRI_CART_VEC; i++)
+  {
+    cart_pos_cmd_(i) = 0.0;
+    ext_tcp_ft_(i) = 0.0;
+    cart_damping_(i) = LWRSIM_DEFAULT_CARTDAMPING;
+    if( i < 3)
+      cart_stiffness_(i) = LWRSIM_DEFAULT_CARTSTIFFNESSFORCE;
+    else
+      cart_stiffness_(i) = LWRSIM_DEFAULT_CARTSTIFFNESSTORQUE;
+  }
+  
+  
+  
+  
   gzdbg << "Initialized joints" << "\n";
   
   socketFd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -210,11 +225,11 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 {
   struct sockaddr cliAddr;
   unsigned int cliAddr_len;
-  KDL::Frame f;
-  KDL::Jacobian jac(7);
-  KDL::JntSpaceInertiaMatrix H(7);
-  KDL::JntArray pos(7);
-  KDL::JntArray grav(7);
+  KDL::Frame T;
+  KDL::Jacobian jac(LBR_MNJ);
+  KDL::JntSpaceInertiaMatrix H(LBR_MNJ);
+  KDL::JntArray pos(LBR_MNJ);
+  KDL::JntArray grav(LBR_MNJ);
 
   previous_time_ = current_time_;
   current_time_ = update_info.realTime;
@@ -222,49 +237,53 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
   // store the real period
   m_msr_data.intf.desiredMsrSampleTime=period.Double();
   
-  for(unsigned int i = 0; i< 7; i++)
+  for(unsigned int i = 0; i< LBR_MNJ; i++)
   {
     //joint_pos_prev_(i) = joint_pos_(i);
     m_msr_data.data.cmdJntPos[i] = m_msr_data.data.msrJntPos[i] = pos(i) = joint_pos_(i) = joints_[i]->GetAngle(0).Radian();
     // filter is worth less here, as the joint_vel is not transmitted to FRI
     //joint_vel_(i) = (joint_pos_(i) - joint_pos_prev_(i))*(0.2/period.Float()) + joint_vel_(i)*0.8 ;
     joint_vel_(i) = joints_[i]->GetVelocity(0);
+    // reset torque;
+    trq_(i) = 0;
   }
 
   dyn->JntToGravity(pos, grav);
-  for(unsigned int i = 0; i< 7; i++)
+  for(unsigned int i = 0; i< LBR_MNJ; i++)
   {
     m_msr_data.data.gravity[i]=grav(i);
   }
 
-  fk->JntToCart(pos, f);
-  m_msr_data.data.msrCartPos[0] = f.M.data[0];
-  m_msr_data.data.msrCartPos[1] = f.M.data[1];
-  m_msr_data.data.msrCartPos[2] = f.M.data[2];
-  m_msr_data.data.msrCartPos[3] = f.p.data[0];
+  fk->JntToCart(pos, T);
+  m_msr_data.data.msrCartPos[0] = T.M.data[0];
+  m_msr_data.data.msrCartPos[1] = T.M.data[1];
+  m_msr_data.data.msrCartPos[2] = T.M.data[2];
+  m_msr_data.data.msrCartPos[3] = T.p.data[0];
 
-  m_msr_data.data.msrCartPos[4] = f.M.data[3];
-  m_msr_data.data.msrCartPos[5] = f.M.data[4];
-  m_msr_data.data.msrCartPos[6] = f.M.data[5];
-  m_msr_data.data.msrCartPos[7] = f.p.data[1];
+  m_msr_data.data.msrCartPos[4] = T.M.data[3];
+  m_msr_data.data.msrCartPos[5] = T.M.data[4];
+  m_msr_data.data.msrCartPos[6] = T.M.data[5];
+  m_msr_data.data.msrCartPos[7] = T.p.data[1];
 
-  m_msr_data.data.msrCartPos[8] = f.M.data[6];
-  m_msr_data.data.msrCartPos[9] = f.M.data[7];
-  m_msr_data.data.msrCartPos[10] = f.M.data[8];
-  m_msr_data.data.msrCartPos[11] = f.p.data[2];
-
+  m_msr_data.data.msrCartPos[8] = T.M.data[6];
+  m_msr_data.data.msrCartPos[9] = T.M.data[7];
+  m_msr_data.data.msrCartPos[10] = T.M.data[8];
+  m_msr_data.data.msrCartPos[11] = T.p.data[2];
+  
   jc->JntToJac(pos, jac);
-  jac.changeRefFrame(KDL::Frame(f.Inverse().M));
+  KDL::Jacobian jac_fri = jac;
+  jac_fri.changeRefFrame(KDL::Frame(T.Inverse().M));
   //Kuka uses Tx, Ty, Tz, Rz, Ry, Rx convention, so we need to swap Rz and Rx
-  jac.data.row(3).swap(jac.data.row(5));
+  jac_fri.data.row(3).swap(jac_fri.data.row(5));
   for ( int i = 0; i < FRI_CART_VEC; i++)
     for ( int j = 0; j < LBR_MNJ; j++)
-      m_msr_data.data.jacobian[i*LBR_MNJ+j] = jac.data(i,j);
+      m_msr_data.data.jacobian[i*LBR_MNJ+j] = jac_fri.data(i,j);
 
   dyn->JntToMass(pos, H);
   for(unsigned int i=0;i<LBR_MNJ;i++) {
     for(unsigned int j=0;j<LBR_MNJ;j++) {
       m_msr_data.data.massMatrix[LBR_MNJ*i+j] = H.data(i, j);
+      mass_(i,j) = H.data(i, j);
     }
   }
 
@@ -275,10 +294,8 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
   {
     m_msr_data.intf.state = FRI_STATE_MON;
   }
-  
-  
-  
-  //send msr data
+
+  // send msr data to socket
   if (0 > sendto(socketFd, (void*) &m_msr_data, sizeof(m_msr_data), 0,
 			(sockaddr*) &remoteAddr, sizeof(remoteAddr))) {
 		ROS_ERROR( "Sending datagram failed.");
@@ -292,7 +309,8 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
   
   FD_ZERO(&rd);
   FD_SET(socketFd, &rd);
-	
+  
+  // receive cmd data from socket
   int sret = select(socketFd+1, &rd, NULL, NULL, &tv);
   if(sret > 0) {
     int n = recvfrom(socketFd, (void*) &m_cmd_data, sizeof(m_cmd_data), 0,
@@ -300,38 +318,322 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
     if (sizeof(tFriCmdData) != n) {
       ROS_DEBUG( "bad packet length : %d should be %zu", n, sizeof(tFriCmdData));
     }
-
-    for(unsigned int i = 0; i < 7; i++) {
-      joint_pos_cmd_(i) = m_cmd_data.cmd.jntPos[i];
-      
-      if( m_msr_data.robot.control == FRI_CTRL_JNT_IMP )
-      {
-        stiffness_(i) = m_cmd_data.cmd.jntStiffness[i];
-        damping_(i) = m_cmd_data.cmd.jntDamping[i];
-        trq_cmd_(i) = m_cmd_data.cmd.addJntTrq[i];
-      }
-
-      ROS_DEBUG("kuka j%d stiffness %f damping %f",i, stiffness_(i), damping_(i));
-    }
-
-    if(cnt < 20) {
-      ++cnt;
-    }
+    // process KRL CMD
+    bool ctrl_mode_switched = false;
+    {
+      // unpack KRL CMD
+      if ((m_cmd_data.krl.boolData & (1 << 0))) {
+        // copy cmd to msr
+        for(unsigned int i=0 ; i < FRI_USER_SIZE ; ++i) {
+          m_msr_data.krl.intData[i] = m_cmd_data.krl.intData[i];
+          m_msr_data.krl.realData[i] = 0.0;//m_cmd_data.krl.realData[i];
+        }
+        
     
-  } else {
-    if(cnt > 0)
-      --cnt;
-  }
-  
-  trq_ = stiffness_.asDiagonal() * (joint_pos_cmd_ - joint_pos_) - damping_.asDiagonal() * joint_vel_ + trq_cmd_;
+        // switch fri state (see OpenKC commands)
+        switch(m_cmd_data.krl.intData[0])
+        {
+          case OKC_FRI_START:
+            //m_msr_data.intf.state = FRI_STATE_CMD;
+            m_msr_data.krl.intData[14] = 1;
+            m_msr_data.krl.intData[15] = 100;
+            break;
+        
+          case OKC_FRI_STOP:
+            //m_msr_data.intf.state = FRI_STATE_MON;
+            m_msr_data.krl.intData[14] = 2;
+            m_msr_data.krl.intData[15] = 101;
+            break;
+          
+          case OKC_SWITCH_CP_CONTROL:
+            m_msr_data.robot.control = FRI_CTRL_CART_IMP;
+            m_msr_data.krl.intData[14] = 6;
+            m_msr_data.krl.intData[15] = 104;
+            
+            
+            //initialize desired pose to current pose
+            m_cmd_data.cmd.cartPos[0] = T.M.data[0];
+            m_cmd_data.cmd.cartPos[1] = T.M.data[1];
+            m_cmd_data.cmd.cartPos[2] = T.M.data[2];
+            m_cmd_data.cmd.cartPos[3] = T.p.data[0];
 
+            m_cmd_data.cmd.cartPos[4] = T.M.data[3];
+            m_cmd_data.cmd.cartPos[5] = T.M.data[4];
+            m_cmd_data.cmd.cartPos[6] = T.M.data[5];
+            m_cmd_data.cmd.cartPos[7] = T.p.data[1];
+
+            m_cmd_data.cmd.cartPos[8] = T.M.data[6];
+            m_cmd_data.cmd.cartPos[9] = T.M.data[7];
+            m_cmd_data.cmd.cartPos[10] = T.M.data[8];
+            m_cmd_data.cmd.cartPos[11] = T.p.data[2];
+            T_old_ = T;
+            ctrl_mode_switched = true;
+            break;
+          
+          case OKC_SWITCH_AXIS_CONTROL: 
+            m_msr_data.robot.control = FRI_CTRL_JNT_IMP;
+            m_msr_data.krl.intData[14] = 7;
+            m_msr_data.krl.intData[15] = 105;
+            ctrl_mode_switched = true;
+            break;
+          
+          case OKC_SWITCH_POSITION: 
+            m_msr_data.robot.control = FRI_CTRL_POSITION;
+            m_msr_data.krl.intData[14] = 9;
+            m_msr_data.krl.intData[15] = 107;
+            ctrl_mode_switched = true;
+            break;
+          
+          case SWITCH_CTRL_MODE: 
+            switch(m_cmd_data.krl.intData[1])
+            {
+              case 10:
+                m_msr_data.robot.control = FRI_CTRL_POSITION;
+                break;
+              case 20:
+                m_msr_data.robot.control = FRI_CTRL_CART_IMP;
+                break;
+              case 30:
+                m_msr_data.robot.control = FRI_CTRL_JNT_IMP;
+                break;
+              default:
+                m_msr_data.robot.control = FRI_CTRL_OTHER;
+                break;
+            }
+            //m_msr_data.krl.intData[14] = 9;
+            //m_msr_data.krl.intData[15] = 107;
+            ctrl_mode_switched = true;
+            break;
+            
+          default:
+            break;
+        }
+      }
+    
+      if(ctrl_mode_switched)
+      {
+        ROS_DEBUG("kuka ctrl mode switched");
+        ctrl_mode_switched = false;
+        m_msr_data.krl.boolData |= (1 << 0);
+      }
+      else
+      {
+        m_msr_data.krl.boolData &= ~(1 << 0);
+      }
+      // do the control   
+      
+      // Joint control modes
+      if ( m_msr_data.robot.control == FRI_CTRL_JNT_IMP ||  m_msr_data.robot.control == FRI_CTRL_POSITION ) {
+        for(unsigned int i = 0; i < LBR_MNJ; i++) {
+          joint_pos_cmd_(i) = m_cmd_data.cmd.jntPos[i];
+
+          // Joint Position (high impendance)
+          if( m_msr_data.robot.control == FRI_CTRL_POSITION ) {
+            stiffness_(i) = LWRSIM_DEFAULT_STIFFNESS;
+            damping_(i) = LWRSIM_DEFAULT_DAMPING;
+            trq_cmd_(i) = LWRSIM_DEFAULT_TRQ_CMD;
+          }
+          
+          // Joint Impedance mode
+          if( m_msr_data.robot.control == FRI_CTRL_JNT_IMP ) {
+            stiffness_(i) = m_cmd_data.cmd.jntStiffness[i];
+            damping_(i) = m_cmd_data.cmd.jntDamping[i];
+            trq_cmd_(i) = m_cmd_data.cmd.addJntTrq[i];
+          }
+          ROS_DEBUG("kuka j%d stiffness %f damping %f",i, stiffness_(i), damping_(i));
+        }
+        
+        // compute the torque
+        trq_ = stiffness_.asDiagonal() * (joint_pos_cmd_ - joint_pos_) - damping_.asDiagonal() * joint_vel_ + trq_cmd_;
+
+        // add gravity compensation
+        for(unsigned int i = 0; i< LBR_MNJ; i++) {
+          joints_[i]->SetForce(0, trq_(i) + grav(i));
+        }
+        
+        
+      }
+      
+      // Cart control mode
+      if ( m_msr_data.robot.control == FRI_CTRL_CART_IMP ) {
+        
+          joint_pos_cmd_ = joint_pos_;
+        // commanded cart pos
+        
+        KDL::Frame T_D;
+        //if (m_cmd_data.cmd.cmdFlags & FRI_CMD_CARTPOS)
+        {
+          T_D.M = KDL::Rotation(m_cmd_data.cmd.cartPos[0],
+              m_cmd_data.cmd.cartPos[1], m_cmd_data.cmd.cartPos[2],
+              m_cmd_data.cmd.cartPos[4], m_cmd_data.cmd.cartPos[5],
+              m_cmd_data.cmd.cartPos[6], m_cmd_data.cmd.cartPos[8],
+              m_cmd_data.cmd.cartPos[9], m_cmd_data.cmd.cartPos[10]);
+          T_D.p.x(m_cmd_data.cmd.cartPos[3]);
+          T_D.p.y(m_cmd_data.cmd.cartPos[7]);
+          T_D.p.z(m_cmd_data.cmd.cartPos[11]);  
+          ROS_DEBUG_NAMED("cart","kuka TD %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", m_cmd_data.cmd.cartPos[0],
+              m_cmd_data.cmd.cartPos[1], m_cmd_data.cmd.cartPos[2],
+              m_cmd_data.cmd.cartPos[4], m_cmd_data.cmd.cartPos[5],
+              m_cmd_data.cmd.cartPos[6], m_cmd_data.cmd.cartPos[8],
+              m_cmd_data.cmd.cartPos[9], m_cmd_data.cmd.cartPos[10],
+              m_cmd_data.cmd.cartPos[3],m_cmd_data.cmd.cartPos[7] ,m_cmd_data.cmd.cartPos[11] );
+              
+        }
+        // validate the desired pose
+        if (!isValidRotation(T_D.M))
+        {
+            ROS_DEBUG_NAMED("cart"," INVALID Desired Pose");
+            T_D.M = KDL::Rotation::Identity();
+        }
+        
+        // twist
+        KDL::Twist cart_twist = KDL::diff(T_old_, T, m_msr_data.intf.desiredMsrSampleTime);
+        cart_twist = T.M.Inverse() * cart_twist;
+        T_old_ = T;  
+        
+        ROS_DEBUG_NAMED("cart","kuka cart_twist vel %f, %f , %f, \nrot %f, %f, %f,", cart_twist.vel.data[0],
+          cart_twist.vel.data[1], cart_twist.vel.data[2],
+          cart_twist.rot.data[0], cart_twist.rot.data[1],
+          cart_twist.rot.data[2] );    
+        
+        // ext tool wrench, cart stiffness and damping
+        for(unsigned int i = 0; i < FRI_CART_VEC; i++) {
+          if (m_cmd_data.cmd.cmdFlags & FRI_CMD_TCPFT)
+            ext_tcp_ft_(i) = m_cmd_data.cmd.addTcpFT[i];
+          if (m_cmd_data.cmd.cmdFlags & (FRI_CMD_CARTSTIFF | FRI_CMD_CARTDAMP))
+          {
+            cart_stiffness_(i) = m_cmd_data.cmd.cartStiffness[i];
+            cart_damping_(i) = m_cmd_data.cmd.cartDamping[i];
+          }
+        }
+        ROS_DEBUG_NAMED("cart","kuka cart_stiffness_  %f, %f, %f, %f, %f, %f", cart_stiffness_(0),
+          cart_stiffness_(1),cart_stiffness_(2),cart_stiffness_(3),cart_stiffness_(4),cart_stiffness_(5));
+        ROS_DEBUG_NAMED("cart","kuka cart_damping_  %f, %f, %f, %f, %f, %f", cart_damping_(0),
+          cart_damping_(1),cart_damping_(2),cart_damping_(3),cart_damping_(4),cart_damping_(5));
   
-  for(unsigned int i = 0; i< 7; i++) {
-    // add gravity compensation
-    joints_[i]->SetForce(0, trq_(i) + grav(i));
+        // Start of user code ImpedanceControl
+        // Code from lwr_impedance_controller RCPRG
+        // T is current pose, TD is desired  TC is tool, TS is spring
+        KDL::Frame T_C, T_S;
+        Eigen::Matrix<double, 7, 7> Kj;
+        Eigen::Matrix<double, 6, 1> K0;
+        Eigen::Matrix<double, 7, 7> Mi, N;
+        Eigen::Matrix<double, 6, 1> F;
+        Eigen::Matrix<double, 7, 6> Ji, jT;
+        Eigen::Matrix<double, 7, 1> tau;
+        Eigen::Matrix<double, 4, 1> e;
+        Eigen::Matrix<double, 6, 6> A, A1, Kc1, Dc, Q;
+
+        Eigen::GeneralizedSelfAdjointEigenSolver< Eigen::Matrix<double, 6, 6> > es;
+        
+        //if (port_Tool.read(tool_pos) == RTT::NewData) {
+        //  tf::PoseMsgToKDL(tool_pos, T_T);
+        //}
+
+        // compute cartesian position of tool
+        T_C = T;// * T_T;
+
+        // calculate transpose of jacobian
+        jT = jac.data.transpose();
+
+        // calculate inverse of manipulator mass matrix
+        Mi = mass_.inverse();
+        // calculate jacobian pseudo inverse
+        Ji = Mi * jT * (jac.data * Mi * jT).inverse();
+        // calculate null-space projection matrix
+        N = (Eigen::Matrix<double, 7, 7>::Identity() - Ji * jac.data);
+        // calculate cartesian mass matrix
+        A = (jac.data * Mi * jT).inverse();
+
+        // compute damping matrix
+        es.compute(cart_stiffness_.asDiagonal(), A);
+        K0 = es.eigenvalues();
+        Q = es.eigenvectors().inverse();
+
+        Dc = Q.transpose() * cart_damping_.asDiagonal() * K0.cwiseSqrt().asDiagonal() * Q;
+
+        // compute length of spring
+        T_S = T_C.Inverse() * T_D;
+
+        T_S.M.GetQuaternion(e(0), e(1), e(2), e(3));
+
+        // calculate spring force
+        F(0) = cart_stiffness_(0) * T_S.p[0];
+        F(1) = cart_stiffness_(1) * T_S.p[1];
+        F(2) = cart_stiffness_(2) * T_S.p[2];
+
+        F(3) = cart_stiffness_(3) * e(0);
+        F(4) = cart_stiffness_(4) * e(1);
+        F(5) = cart_stiffness_(5) * e(2);
+
+        // compute damping force
+        F(0) -= Dc.diagonal()(0) * cart_twist.vel(0);
+        F(1) -= Dc.diagonal()(1) * cart_twist.vel(1);
+        F(2) -= Dc.diagonal()(2) * cart_twist.vel(2);
+
+        F(3) -= Dc.diagonal()(3) * cart_twist.rot(0);
+        F(4) -= Dc.diagonal()(4) * cart_twist.rot(1);
+        F(5) -= Dc.diagonal()(5) * cart_twist.rot(2);
+
+        
+        // -------------------------------------------
+        // add external wrench command
+        F += ext_tcp_ft_;
+        
+        ROS_DEBUG_NAMED("cart","kuka F  %f, %f, %f, %f, %f, %f", F(0),
+          F(1),F(2),F(3),F(4),F(5));
+
+        // transform cartesian force to joint torques
+        tau = jT * F;
+        // project stiffness to joint space for local stiffness control
+        Kj = jT * cart_stiffness_.asDiagonal() * jac.data;
+        
+        ROS_DEBUG_NAMED("cart","kuka cart trq cmd %f, stiffness %f", tau(1), Kj(1,1));
+        for(unsigned int i = 0; i < LBR_MNJ; i++) {
+          trq_cmd_(i) = tau(i);
+          stiffness_(i) = Kj(i, i);
+          damping_(i) = 0.0;
+        }
+        
+        
+        // compute the torque
+        trq_ = trq_cmd_; //stiffness_.asDiagonal() * (joint_pos_cmd_ - joint_pos_) - damping_.asDiagonal() * joint_vel_ + trq_cmd_;
+        
+        
+        for(unsigned int i = 0; i< LBR_MNJ; i++) {
+          joints_[i]->SetForce(0, trq_(i));// + grav(i));
+        }
+        
+      }
+      if(cnt < 20) {
+        ++cnt;
+      }
+    }
   }
+  else {
+  if(cnt > 0)
+    --cnt;
+  }
+  
+  
+  
   ROS_DEBUG("kuka pos cmd %f pos current %f vel curr %f trq_cmd %f trq %f, grav %f", joint_pos_cmd_(1), joint_pos_(1), joint_vel_(1), trq_cmd_(1), trq_(1), grav(1));
 }
+
+
+bool LWRController::isValidRotation(KDL::Rotation &rot)
+{
+    double det = 
+      rot.data[0] * rot.data[4] * rot.data[8]
+     +rot.data[1] * rot.data[5] * rot.data[6]
+     +rot.data[2] * rot.data[3] * rot.data[7]
+     -rot.data[2] * rot.data[4] * rot.data[6]
+     -rot.data[1] * rot.data[3] * rot.data[8]
+     -rot.data[0] * rot.data[5] * rot.data[7];
+     
+    return (std::fabs(det)-1 < EPSILON_DET);
+}
+
 
 GZ_REGISTER_MODEL_PLUGIN(LWRController);
 
