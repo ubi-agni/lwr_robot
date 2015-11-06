@@ -18,8 +18,10 @@
   <build_depend>rtt_geometry_msgs</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>orocos_kdl</build_depend>
-  <build_depend>rtt_ros</build_depend>\
+  <build_depend>rtt_ros</build_depend>
   <build_depend>xeno_clock</build_depend>
+  <build_depend>kdl_conversions</build_depend>
+  <build_depend>lwr_fri</build_depend>
   <build_depend>message_runtime</build_depend>
   
 
@@ -31,6 +33,8 @@
   <run_depend>orocos_kdl</run_depend>
   <run_depend>rtt_ros</run_depend>
   <run_depend>xeno_clock</run_depend>
+  <run_depend>kdl_conversions</run_depend>
+  <run_depend>lwr_fri</run_depend>
   <run_depend>message_runtime</run_depend>
   
   <export>

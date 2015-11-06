@@ -8,7 +8,7 @@ generate_messages(DEPENDENCIES geometry_msgs std_msgs)
 
 catkin_package(
   DEPENDS rtt
-  CATKIN_DEPENDS rtt_roscomm geometry_msgs std_msgs message_runtime
+  CATKIN_DEPENDS rtt_roscomm geometry_msgs std_msgs message_runtime kdl_conversions lwr_fri xeno_clock
 )
 
 find_package(OROCOS-RTT REQUIRED)
