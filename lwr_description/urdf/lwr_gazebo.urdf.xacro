@@ -3,7 +3,8 @@
 	<!-- namespace must be set up according to launch file namespace -->
 	<!-- port is the port number for the FRI UDP connection (be aware that port+1 is also used) --> 
 	<xacro:macro name="lwr_arm_gazebo_controller" params="namespace port prefix gravity_dir:=^|'0 0 -9.81'
-		                                                    payload_mass:=^|0.0 payload_cog:=^|'0 0 0'"> 
+		                                                    payload_mass:=^|0.0 payload_cog:=^|'0 0 0'
+		                                                    init_joint_pos:=^|'0 0 0 0 0 0 0'"> 
 		<xacro:property name="prefix_"  value="${prefix + '_' if prefix else ''}" />
 		<gazebo> 
 			<plugin name="${prefix_}lwr_arm_controller" filename="liblwr_controller.so">
@@ -22,13 +23,13 @@
 				<xacro:if value="${payload_cog not in ['','-']}" >
 					<payloadCOG>${payload_cog}</payloadCOG>
 				</xacro:if>
-				<xacro:element xacro:name="${prefix_}arm_0_joint">0</xacro:element>
-				<xacro:element xacro:name="${prefix_}arm_1_joint">0</xacro:element>
-				<xacro:element xacro:name="${prefix_}arm_2_joint">0</xacro:element>
-				<xacro:element xacro:name="${prefix_}arm_3_joint">0</xacro:element>
-				<xacro:element xacro:name="${prefix_}arm_4_joint">0</xacro:element>
-				<xacro:element xacro:name="${prefix_}arm_5_joint">0</xacro:element>
-				<xacro:element xacro:name="${prefix_}arm_6_joint">0</xacro:element>
+				<xacro:element xacro:name="${prefix_}arm_0_joint">${init_joint_pos.split()[0]}</xacro:element>
+				<xacro:element xacro:name="${prefix_}arm_1_joint">${init_joint_pos.split()[1]}</xacro:element>
+				<xacro:element xacro:name="${prefix_}arm_2_joint">${init_joint_pos.split()[2]}</xacro:element>
+				<xacro:element xacro:name="${prefix_}arm_3_joint">${init_joint_pos.split()[3]}</xacro:element>
+				<xacro:element xacro:name="${prefix_}arm_4_joint">${init_joint_pos.split()[4]}</xacro:element>
+				<xacro:element xacro:name="${prefix_}arm_5_joint">${init_joint_pos.split()[5]}</xacro:element>
+				<xacro:element xacro:name="${prefix_}arm_6_joint">${init_joint_pos.split()[6]}</xacro:element>
 			</plugin>
 		</gazebo>  
 	</xacro:macro>
