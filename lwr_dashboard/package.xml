@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package>
+  <name>lwr_dashboard</name>
+  <version>0.1.0</version>
+  <description>LWR fashboard interface for easy KRL interaction</description>
+
+  <maintainer email="gwalck@techfak.uni-bielefeld.de">Guillaume Walck</maintainer>
+
+  <license>BSD</license>
+  <author email="gwalck@techfak.uni-bielefeld.de">Guillaume Walck</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>rospy</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <run_depend>rospy</run_depend>
+  <run_depend>lwr_fri</run_depend>
+  <run_depend>std_msgs</run_depend>
+
+  <export>
+  </export>
+</package>
