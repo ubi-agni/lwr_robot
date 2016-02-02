@@ -88,6 +88,8 @@ d:connect(friname..".JointTorque", jspname..".JointEffort", rtt.Variable("ConnPo
 local ros=rtt.provides("ros")
 d:stream(diagname..".Diagnostics",ros:topic(namespace.."/diagnostics"))
 d:stream(jspname..".joint_state",ros:topic(namespace.."/joint_states"))
+d:stream(friname..".fromKRL",ros:topic(namespace.."/fromKRL"))
+d:stream(friname..".toKRL",ros:topic(namespace.."/toKRL"))
 
 print(namespace.."kuka_controller configured")
 
