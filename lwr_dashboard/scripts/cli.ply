@@ -5,7 +5,8 @@
 #author          :https://www.bggofurther.com/2015/01/create-an-interactive-command-line-menu-using-python/
  
 import sys, os
-import lwr_dashboard
+from lwr_dashboard.lwr_dashboard import LwrDashboard
+import rospy
 
 # Main definition - constants
 menu_actions  = {}  
@@ -20,7 +21,7 @@ def main_menu():
     
     print "Welcome,\n"
     print "Please choose the menu you want to start:"
-    print "1. Menu 1"
+    print "1. Control menu"
     print "2. Menu 2"
     print "\n0. Quit"
     choice = raw_input(" >>  ")
@@ -44,7 +45,13 @@ def exec_menu(choice):
  
 # Menu 1
 def menu1():
-    print "Hello Menu 1 !\n"
+    #os.system('clear')
+    print "Control Menu !\n"
+    print "3. FRISTART"
+    print "4. FRISTOP"
+    print "5. ENABLE Motors"
+    print "6. DISABLE Motors"
+    print "7. MOVE START POS"
     print "9. Back"
     print "0. Quit"
     choice = raw_input(" >>  ")
@@ -54,13 +61,40 @@ def menu1():
  
 # Menu 2
 def menu2():
+    #os.system('clear')
     print "Hello Menu 2 !\n"
     print "9. Back"
     print "0. Quit" 
     choice = raw_input(" >>  ")
     exec_menu(choice)
     return
- 
+
+def fristart():
+    print "fristart"
+    lwrdb.command_mode_request()
+    menu1()
+        
+def fristop():
+    print "fristop"
+    lwrdb.monitor_mode_request()
+    menu1()
+
+def enable_motors():
+    print "fristart"
+    lwrdb.enable_motors()
+    menu1()
+    
+def disable_motors():
+    print "fristart"
+    lwrdb.enable_motors()
+    menu1()
+
+def move_start_pos():
+    print "fristart"
+    lwrdb.move_start_pos()
+    menu1()
+
+
 # Back to main menu
 def back():
     menu_actions['main_menu']()
@@ -78,6 +112,11 @@ menu_actions = {
     'main_menu': main_menu,
     '1': menu1,
     '2': menu2,
+    '3': fristart,
+    '4': fristop,
+    '5': enable_motors,
+    '6': disable_motors,
+    '7': move_start_pos,
     '9': back,
     '0': exit,
 }

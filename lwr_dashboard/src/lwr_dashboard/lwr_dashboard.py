@@ -9,7 +9,7 @@ from lwr_fri.msg import FriKrlData
 
 OKC_ACK_IDX = 14
 OKC_SEQ_IDX = 13
-OKC_CMD_IDX = 0
+OKC_CMD_IDX = 15
 
 OKC_FRI_START = 1
 OKC_FRI_STOP = 2
