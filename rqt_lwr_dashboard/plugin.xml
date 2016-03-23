@@ -1,0 +1,17 @@
+<library path="src">
+  <class name="LwrDashboard" type="rqt_lwr_dashboard.rqt_lwr_dashboard.RqtLwrDashboard" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      A Python GUI plugin to interact with the robot state
+    </description>
+    <qtgui>
+      <group>
+        <label>Robot</label>
+        <icon type="theme">folder</icon>
+        <statustip>Plugins related to specific robots.</statustip>
+      </group>
+      <label>LWR Dashboard</label>
+      <icon type="theme">task-past-due</icon>
+      <statustip>A Python GUI plugin to interact with the robot state.</statustip>
+    </qtgui>
+  </class>
+</library>
