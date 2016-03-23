@@ -34,7 +34,7 @@ class LwrDashboard(object):
         Dashboard to interact with the LWR via KRL
     """
 
-    def __init__(self):
+    def __init__(self, namespace=None):
         """
         init
         """
@@ -43,22 +43,31 @@ class LwrDashboard(object):
         self._last_krl_cmd = FriKrlData()
         self._last_krl_ret = None
         self._seq_cnt = 0
+        self._namespace = namespace
 
-        if not self.init_publisher():
-            rospy.signal_shutdown("missing services")
+
+        self.init_publisher()
+        self.init_subscriber()
+            
 
     def init_publisher(self):
         """
         Initialize publisher to communicate with the kcp via FRI
         """
-        self._krl_pub = rospy.Publisher("toKRL", FriKrlData, queue_size=1)
+        if self._namespace is not None:
+            self._krl_pub = rospy.Publisher(self._namespace + "/toKRL", FriKrlData, queue_size=1)
+        else:
+            self._krl_pub = rospy.Publisher("toKRL", FriKrlData, queue_size=1)
         return True
 
     def init_subscriber(self):
         """
-        Initialize publisher to communicate with the kcp via FRI
+        Initialize subscriber to communicate with the kcp via FRI
         """
-        self._krl_sub = rospy.Subscriber("fromKRL", FriKrlData, self.callback)
+        if self._namespace is not None:
+            self._krl_sub = rospy.Subscriber(self._namespace + "/fromKRL", FriKrlData, self.callback)
+        else:
+            self._krl_sub = rospy.Subscriber("fromKRL", FriKrlData, self.callback)
         return True
 
     def reset(self):
@@ -149,11 +158,11 @@ class LwrDashboard(object):
         Enable lwr motor drives (DRIVE ON)
         Should permit releasing brakes
         """
-        print "Enable motor is not yet implemented, as it requires io.drv on the KRC2"
+        print "Enable motor is not yet implemented, as it requires o2i_drv.o on the KRC2"
 
     def disable_motors(self):
         """
         Disable lwr motor drives (DRIVE OFF)
         Should brake
         """
-        print "Disable motor is not yet implemented, as it requires io.drv on the KRC2"
+        print "Disable motor is not yet implemented, as it requires o2i_drv.o on the KRC2"

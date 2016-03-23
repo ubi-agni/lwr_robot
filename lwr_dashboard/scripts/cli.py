@@ -128,6 +128,6 @@ menu_actions = {
 # Main Program
 if __name__ == "__main__":
     rospy.init_node('lwr_dashboard')
-    lwrdb = LwrDashboard()
+    lwrdb = LwrDashboard(namespace="ra")
     # Launch main menu
     main_menu()
