@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
+# derived from emergency_buttons_dashboard.py  rqt_lwr_dashboard
+#
 # derived from rqt_emergency_buttons: emergency_buttons_dashboard.py
 #   original Authors Sammy Pfeiffer
 #
@@ -40,13 +42,13 @@ from .state_button import ControlStateButton
 
 class RqtLwrDashboard(Dashboard):
     """
-    Dashboard for Mekabot
+    Dashboard for LWR via fri and krl
 
     :param context: the plugin context
     :type context: qt_gui.plugin.Plugin
     """
     def setup(self, context):
-        self.name = 'Emergency Buttons Dashboard'
+        self.name = 'LWR Buttons Dashboard'
         self.max_icon_size = QSize(50, 30)
 
         self._last_dashboard_message_time = rospy.Time.now()
@@ -76,7 +78,6 @@ class RqtLwrDashboard(Dashboard):
 
         self.btn_command_mode = QPushButton("command_mode")
         self.btn_monitor_mode = QPushButton("monitor_mode")
-
         self.btn_command_mode.setEnabled(False)
         self.btn_monitor_mode.setEnabled(False)
 
@@ -86,8 +87,8 @@ class RqtLwrDashboard(Dashboard):
         vlayout.addWidget(self.btn_command_mode)
         vlayout.addWidget(self.btn_monitor_mode)
 
-        self.btn_command_mode.clicked.connect(self.on_btn_command_mode_clicked)
-        self.btn_monitor_mode.clicked.connect(self.on_btn_monitor_mode_clicked)
+        self.btn_command_mode.clicked.connect(functools.partial(self.on_btn_command_mode_clicked, group_name=None))
+        self.btn_monitor_mode.clicked.connect(functools.partial(self.on_btn_monitor_mode_clicked, group_name=None))
         self.chk_all.stateChanged.connect(self.on_enable_all_clicked)
 
         self._main_widget.setLayout(vlayout)
@@ -108,7 +109,6 @@ class RqtLwrDashboard(Dashboard):
         for group_name in self._state_buttons:
             self._state_buttons[group_name].enable_menu.setChecked(self.chk_all.isChecked())
             self._state_buttons[group_name].enable_menu.triggered.emit(self.chk_all.isChecked())
-            # stateChanged.emit( _set_enabled_signal.emit(self.chk_all.isChecked())
 
     def on_btn_command_mode_clicked(self, group_name=None):
         """
@@ -150,7 +150,7 @@ class RqtLwrDashboard(Dashboard):
         :param msg:
         :type msg: Diagnostic
         """
-        
+
         power_state = None
         control_strategy = None
         control_state = None
@@ -182,6 +182,16 @@ class RqtLwrDashboard(Dashboard):
                         self._state_buttons[group_name].set_state("command")
                     else:
                         print "Invalid states power:", power_state, ", control_state:", control_state
+
+            # update buttons on power state change
+            if self._last_power_state != power_state and error is False:
+                if power_state == "1111111":
+                    self.btn_command_mode.setEnabled(True)
+                    self.btn_monitor_mode.setEnabled(True)
+                else:
+                    self.btn_command_mode.setEnabled(False)
+                    self.btn_monitor_mode.setEnabled(False)
+
             self._last_error = error
             self._last_power_state = power_state
             self._last_control_state = control_state
