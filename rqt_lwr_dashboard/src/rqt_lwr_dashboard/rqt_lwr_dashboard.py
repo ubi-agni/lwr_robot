@@ -54,16 +54,24 @@ class RqtLwrDashboard(Dashboard):
         self._last_dashboard_message_time = rospy.Time.now()
         self._state_buttons = {}
         self._widget_initialized = False
-        self._last_error = None
-        self._last_power_state = None
-        self._last_control_state = None
+        self._last_error = {}
+        self._last_power_state = {}
+        self._last_control_state = {}
 
         # TODO read this list on the parameters
         group_names = ["left_arm", "right_arm"]
-
+        
+        self._last_error["left_arm"] = None
+        self._last_power_state["left_arm"] = None
+        self._last_control_state["left_arm"] = None
+        self._last_error["right_arm"] = None
+        self._last_power_state["right_arm"] = None
+        self._last_control_state["right_arm"] = None
+        
         self._lwrdb = {}
         self._lwrdb["left_arm"] = LwrDashboard(namespace="la")
         self._lwrdb["right_arm"] = LwrDashboard(namespace="ra")
+        
 
         # create as many buttons as groups received
         for group_name in group_names:
@@ -184,16 +192,18 @@ class RqtLwrDashboard(Dashboard):
                         print "Invalid states power:", power_state, ", control_state:", control_state
 
             # update buttons on power state change
-            if self._last_power_state != power_state and error is False:
+            if self._last_power_state[group_name] != power_state and error is False:
                 if power_state == "1111111":
+                    self._lwrdb[group_name].reset()
                     self.btn_command_mode.setEnabled(True)
                     self.btn_monitor_mode.setEnabled(True)
                 else:
+                    
                     self.btn_command_mode.setEnabled(False)
                     self.btn_monitor_mode.setEnabled(False)
 
-            self._last_error = error
-            self._last_power_state = power_state
-            self._last_control_state = control_state
+            self._last_error[group_name] = error
+            self._last_power_state[group_name] = power_state
+            self._last_control_state[group_name] = control_state
 
     #def shutdown_dashboard(self):

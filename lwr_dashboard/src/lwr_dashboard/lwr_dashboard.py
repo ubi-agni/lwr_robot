@@ -42,8 +42,9 @@ class LwrDashboard(object):
         self._krl_sub = None
         self._last_krl_cmd = FriKrlData()
         self._last_krl_ret = None
-        self._seq_cnt = 0
+        self._seq_cnt = None
         self._namespace = namespace
+        self._seq_mismatch_count = 0
 
 
         self.init_publisher()
@@ -65,9 +66,9 @@ class LwrDashboard(object):
         Initialize subscriber to communicate with the kcp via FRI
         """
         if self._namespace is not None:
-            self._krl_sub = rospy.Subscriber(self._namespace + "/fromKRL", FriKrlData, self.callback)
+            self._krl_sub = rospy.Subscriber(self._namespace + "/fromKRL", FriKrlData, self.callback, queue_size=10)
         else:
-            self._krl_sub = rospy.Subscriber("fromKRL", FriKrlData, self.callback)
+            self._krl_sub = rospy.Subscriber("fromKRL", FriKrlData, self.callback, queue_size=10)
         return True
 
     def reset(self):
@@ -75,17 +76,25 @@ class LwrDashboard(object):
         used if missed ack and commands are blocked
         """
         self._last_krl_cmd = FriKrlData()
+        self._seq_cnt = None
+        rospy.logwarn("resetted the dashboard " + self._namespace)
 
     def callback(self, data):
         """
         incoming krl message processing (acknowledge)
         """
+        
+        # initialize the counter on first message
+        if self._seq_cnt is None:
+            self._seq_cnt = data.intData[OKC_SEQ_IDX]
+            rospy.loginfo("resetted sequence number to %d " % self._seq_cnt)
+            
         # check if incoming data is an acknowledge
         if data.boolData & (1 << 0):
 
             # compare the seq numbers (should be incremented by one)
-            if self._seq_cnt + 1 == data.intData[OKC_SEQ_IDX]:
-                self._seq_cnt = data.intData[OKC_SEQ_IDX]
+            if self._seq_cnt == data.intData[OKC_SEQ_IDX]:
+                self._seq_mismatch_count = 0
 
                 # if we actually commanded something
                 if self._last_krl_cmd.intData[OKC_CMD_IDX] != 0:
@@ -100,10 +109,12 @@ class LwrDashboard(object):
                 # just store
                 self._last_krl_ret = data
             else:
-                rospy.logwarn("invalid seq number %d should be %d"
-                              % (data.intData[OKC_SEQ_IDX], self._seq_cnt + 1))
+                self._seq_mismatch_count += 1
+                if (self._seq_mismatch_count % 5000 == 0):
+                    rospy.logwarn("invalid seq number %d should be %d"
+                              % (data.intData[OKC_SEQ_IDX], self._seq_cnt))
                 # currently force the counter
-                self._seq_cnt = data.intData[OKC_SEQ_IDX]
+                #self._seq_cnt = data.intData[OKC_SEQ_IDX]
 
     def krl_request(self, cmd):
         """
@@ -114,11 +125,16 @@ class LwrDashboard(object):
                           % self._last_krl_cmd.intData[OKC_CMD_IDX])
             return False
         else:
-            msg = FriKrlData()
-            msg.intData[OKC_CMD_IDX] = cmd
-            self._krl_pub.publish(msg)
-            self._last_krl_cmd = msg
-            return True
+            if self._seq_cnt is not None:
+                msg = FriKrlData()
+                msg.intData[OKC_CMD_IDX] = cmd
+                self._seq_cnt += 1
+                self._krl_pub.publish(msg)
+                self._last_krl_cmd = msg
+                return True
+            else:
+                rospy.logwarn("Did not receive any fromKRL data yet, cannot send a command")
+                return False
 
     def command_mode_request(self):
         """
@@ -137,7 +153,7 @@ class LwrDashboard(object):
         reset KRL seq counter as well as internal counter
         """
         if self.krl_request(OKC_RESET_COUNTER):
-            self._seq_cnt = 0
+            self._seq_cnt = 1
             return True
         return False
 
