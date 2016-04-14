@@ -31,7 +31,7 @@ from rqt_robot_dashboard.dashboard import Dashboard
 
 from python_qt_binding.QtCore import QSize
 from QtGui import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, \
-    QCheckBox
+    QCheckBox, QMessageBox
 
 from lwr_dashboard.lwr_dashboard import LwrDashboard
 
@@ -84,19 +84,32 @@ class RqtLwrDashboard(Dashboard):
         self.chk_all = QCheckBox("enable_all")
         self.chk_all.setChecked(True)
 
+        # create buttons
         self.btn_command_mode = QPushButton("command_mode")
         self.btn_monitor_mode = QPushButton("monitor_mode")
+        self.btn_home = QPushButton("home")
+        self.btn_park = QPushButton("park")
+        
+        # disable buttons by default
         self.btn_command_mode.setEnabled(False)
         self.btn_monitor_mode.setEnabled(False)
+        self.btn_home.setEnabled(False)
+        self.btn_park.setEnabled(False)
 
+        # place buttons
         hlayout.addWidget(self.chk_all)
-
         vlayout.addLayout(hlayout)
         vlayout.addWidget(self.btn_command_mode)
         vlayout.addWidget(self.btn_monitor_mode)
+        vlayout.addWidget(self.btn_home)
+        vlayout.addWidget(self.btn_park)
 
+        # signals for buttons
         self.btn_command_mode.clicked.connect(functools.partial(self.on_btn_command_mode_clicked, group_name=None))
         self.btn_monitor_mode.clicked.connect(functools.partial(self.on_btn_monitor_mode_clicked, group_name=None))
+        self.btn_home.clicked.connect(functools.partial(self.on_btn_home_clicked, group_name=None))
+        self.btn_park.clicked.connect(functools.partial(self.on_btn_park_clicked, group_name=None))
+        
         self.chk_all.stateChanged.connect(self.on_enable_all_clicked)
 
         self._main_widget.setLayout(vlayout)
@@ -144,6 +157,65 @@ class RqtLwrDashboard(Dashboard):
             for group_name in self._state_buttons:
                 if self._state_buttons[group_name].enable_menu.isChecked():
                     self._lwrdb[group_name].monitor_mode_request()
+
+    def on_btn_home_clicked(self, group_name=None):
+        """
+        move to home
+        :param group_name: group concerned, default is None meaning act on all enabled groups
+
+        """
+        if group_name is not None:
+            if self._state_buttons[group_name].enable_menu.isChecked():
+                # request a confirmation
+                """
+                Show a warning message
+                """
+                flags = QMessageBox.Ok
+                flags |= QMessageBox.Abort
+                msg = "CHECK the " + group_name + " is SAFE to go HOME pose before proceeding !\n\
+                       RESET your applications to restart from Home pose"
+                
+                response = QMessageBox.warning(self._main_widget, "Warning!", msg, flags, QMessageBox.Abort)
+                if response == QMessageBox.Ok:
+                    print "Proceeding to go home"
+                    self._lwrdb[group_name].move_start_pos()
+                   
+                else:
+                     print "Canceled go home request"
+        else:
+            '''for group_name in self._state_buttons:
+                if self._state_buttons[group_name].enable_menu.isChecked():
+                    self._lwrdb[group_name].move_start_pos()'''
+            print "Going home not supported for dual arm yet"
+            
+    def on_btn_park_clicked(self, group_name=None):
+        """
+        move to park
+        :param group_name: group concerned, default is None meaning act on all enabled groups
+
+        """
+        if group_name is not None:
+            if self._state_buttons[group_name].enable_menu.isChecked():
+                # request a confirmation
+                """
+                Show a warning message
+                """
+                flags = QMessageBox.Ok
+                flags |= QMessageBox.Abort
+                msg = "CHECK the " + group_name + " is SAFE to go PARK pose before proceeding !\n\
+                       RESET your applications to restart from PARK pose"
+                
+                response = QMessageBox.warning(self._main_widget, "Warning!", msg, flags, QMessageBox.Abort)
+                if response == QMessageBox.Ok:
+                    print "Proceeding to park pose"
+                    self._lwrdb[group_name].move_park_pos()
+                else:
+                    print "Canceled park pose request"
+        else:
+            '''for group_name in self._state_buttons:
+                if self._state_buttons[group_name].enable_menu.isChecked():
+                    self._lwrdb[group_name].move_park_pos()'''
+            print "Going park pose not supported for dual arm yet"
 
     def get_widgets(self):
         widgets_list = []

@@ -87,6 +87,8 @@ class ControlStateButton(MenuDashWidget):
 
         self.add_action('Command', functools.partial(self._parent.on_btn_command_mode_clicked, group_name=self._name))
         self.add_action('Monitor', functools.partial(self._parent.on_btn_monitor_mode_clicked, group_name=self._name))
+        self.add_action('Home', functools.partial(self._parent.on_btn_home_clicked, group_name=self._name))
+        self.add_action('Park', functools.partial(self._parent.on_btn_park_clicked, group_name=self._name))
         self.enable_menu = self.add_action('Enable/Disable', self.on_enable_disable)
         self.enable_menu.setCheckable(True)
         self.enable_menu.setChecked(False)
