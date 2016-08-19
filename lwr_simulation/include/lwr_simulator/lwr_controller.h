@@ -36,6 +36,7 @@
 #include "gazebo/common/Plugin.hh"
 #include "gazebo/common/Events.hh"
 #include <ros/ros.h>
+#include <std_srvs/Empty.h>
 #include <kdl/chain.hpp>
 #include <kdl/chaindynparam.hpp>
 #include <kdl/chainfksolverpos_recursive.hpp>
@@ -103,11 +104,18 @@ namespace gazebo
       
       private:
       
+        bool DriveOnCb(std_srvs::Empty::Request  &req,
+                              std_srvs::Empty::Response &res);
+        bool DriveOffCb(std_srvs::Empty::Request  &req,
+                              std_srvs::Empty::Response &res);
+                              
         bool isValidRotation(KDL::Rotation &rot);
         /*
          *  \brief pointer to ros node
          */
         ros::NodeHandle* rosnode_;
+        ros::ServiceServer drive_on_srv_;
+        ros::ServiceServer drive_off_srv_;
         
         gazebo::physics::ModelPtr parent_model_;
         std::string robotPrefix;
@@ -131,12 +139,16 @@ namespace gazebo
 
         std::string base_frame_;
 
-        int cnt;
+        int cnt;  //!< counter of valid frames
+        bool drive_on_; //!< status of the motors (and brakes)
+        bool auto_on_; //!< If true (default) the robot switches on after 10 valid datagrams
+        
         
         Eigen::Matrix<double, 7, 1> joint_pos_;
         Eigen::Matrix<double, 7, 1> joint_pos_prev_;
         Eigen::Matrix<double, 7, 1> joint_pos_cmd_;
         Eigen::Matrix<double, 7, 1> joint_vel_;
+        Eigen::Matrix<double, 7, 1> brake_pos_;
         Eigen::Matrix<double, 7, 1> stiffness_;
         Eigen::Matrix<double, 7, 1> damping_;
         Eigen::Matrix<double, 7, 1> trq_cmd_;
