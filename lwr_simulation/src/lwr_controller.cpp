@@ -144,10 +144,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     else
       cart_stiffness_(i) = LWRSIM_DEFAULT_CARTSTIFFNESSTORQUE;
   }
-  
-  
-  
-  
+
   gzdbg << "Initialized joints" << "\n";
   
   socketFd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -335,20 +332,20 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
         {
           case OKC_FRI_START:
             //m_msr_data.intf.state = FRI_STATE_CMD;
-            m_msr_data.krl.intData[14] = 1;
-            m_msr_data.krl.intData[15] = 100;
+            m_msr_data.krl.intData[OKC_ACK_IDX] = 1;
+            m_msr_data.krl.intData[OKC_CMD_IDX] = 100;
             break;
         
           case OKC_FRI_STOP:
             //m_msr_data.intf.state = FRI_STATE_MON;
-            m_msr_data.krl.intData[14] = 2;
-            m_msr_data.krl.intData[15] = 101;
+            m_msr_data.krl.intData[OKC_ACK_IDX] = 2;
+            m_msr_data.krl.intData[OKC_CMD_IDX] = 101;
             break;
           
           case OKC_SWITCH_CP_CONTROL:
             m_msr_data.robot.control = FRI_CTRL_CART_IMP;
-            m_msr_data.krl.intData[14] = 6;
-            m_msr_data.krl.intData[15] = 104;
+            m_msr_data.krl.intData[OKC_ACK_IDX] = 6;
+            m_msr_data.krl.intData[OKC_CMD_IDX] = 104;
             
             
             //initialize desired pose to current pose
@@ -372,19 +369,19 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
           
           case OKC_SWITCH_AXIS_CONTROL: 
             m_msr_data.robot.control = FRI_CTRL_JNT_IMP;
-            m_msr_data.krl.intData[14] = 7;
-            m_msr_data.krl.intData[15] = 105;
+            m_msr_data.krl.intData[OKC_ACK_IDX] = 7;
+            m_msr_data.krl.intData[OKC_CMD_IDX] = 105;
             ctrl_mode_switched = true;
             break;
           
           case OKC_SWITCH_POSITION: 
             m_msr_data.robot.control = FRI_CTRL_POSITION;
-            m_msr_data.krl.intData[14] = 9;
-            m_msr_data.krl.intData[15] = 107;
+            m_msr_data.krl.intData[OKC_ACK_IDX] = 9;
+            m_msr_data.krl.intData[OKC_CMD_IDX] = 107;
             ctrl_mode_switched = true;
             break;
           
-          case SWITCH_CTRL_MODE: 
+          case OROCOS_OKC_SWITCH_CONTROL_MODE: 
             switch(m_cmd_data.krl.intData[1])
             {
               case 10:
@@ -400,8 +397,8 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
                 m_msr_data.robot.control = FRI_CTRL_OTHER;
                 break;
             }
-            //m_msr_data.krl.intData[14] = 9;
-            //m_msr_data.krl.intData[15] = 107;
+            //m_msr_data.krl.intData[OKC_ACK_IDX] = 9;
+            //m_msr_data.krl.intData[OKC_CMD_IDX] = 107;
             ctrl_mode_switched = true;
             break;
             
@@ -450,8 +447,6 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
         for(unsigned int i = 0; i< LBR_MNJ; i++) {
           joints_[i]->SetForce(0, trq_(i) + grav(i));
         }
-        
-        
       }
       
       // Cart control mode
