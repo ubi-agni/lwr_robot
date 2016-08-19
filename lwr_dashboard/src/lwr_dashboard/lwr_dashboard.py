@@ -27,6 +27,8 @@ OROCOS_OKC_DRIVE_ON = 21
 OROCOS_OKC_MOVE_AXIS_POS = 22
 OROCOS_OKC_SWITCH_CONTROL_MODE = 30
 OROCOS_OKC_MOVE_PARK_POS = 90
+OROCOS_OKC_RESET_FRI = 98
+OROCOS_OKC_END_KRL = 99
 
 
 class LwrDashboard(object):
@@ -156,6 +158,18 @@ class LwrDashboard(object):
             self._seq_cnt = 1
             return True
         return False
+
+    def reset_fri(self):
+        """
+        Request reset_fri
+        """
+        return self.krl_request(OROCOS_OKC_RESET_FRI)
+
+    def end_krl(self):
+        """
+        Request end_krl
+        """
+        return self.krl_request(OROCOS_OKC_END_KRL)
 
     def move_park_pos(self):
         """

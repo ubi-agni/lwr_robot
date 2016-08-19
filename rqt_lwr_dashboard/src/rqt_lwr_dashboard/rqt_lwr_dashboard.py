@@ -87,6 +87,8 @@ class RqtLwrDashboard(Dashboard):
         # create buttons
         self.btn_command_mode = QPushButton("command_mode")
         self.btn_monitor_mode = QPushButton("monitor_mode")
+        self.btn_reset_fri = QPushButton("reset fri")
+        self.btn_end_krl = QPushButton("end krl")
         self.btn_home = QPushButton("home")
         self.btn_park = QPushButton("park")
         
@@ -95,18 +97,25 @@ class RqtLwrDashboard(Dashboard):
         self.btn_monitor_mode.setEnabled(False)
         self.btn_home.setEnabled(False)
         self.btn_park.setEnabled(False)
+        
+        self.btn_end_krl.setEnabled(True)
+        self.btn_reset_fri.setEnabled(True)
 
         # place buttons
         hlayout.addWidget(self.chk_all)
         vlayout.addLayout(hlayout)
         vlayout.addWidget(self.btn_command_mode)
         vlayout.addWidget(self.btn_monitor_mode)
+        vlayout.addWidget(self.btn_reset_fri)
+        vlayout.addWidget(self.btn_end_krl)
         vlayout.addWidget(self.btn_home)
         vlayout.addWidget(self.btn_park)
 
         # signals for buttons
         self.btn_command_mode.clicked.connect(functools.partial(self.on_btn_command_mode_clicked, group_name=None))
         self.btn_monitor_mode.clicked.connect(functools.partial(self.on_btn_monitor_mode_clicked, group_name=None))
+        self.btn_reset_fri.clicked.connect(functools.partial(self.on_btn_reset_fri_clicked, group_name=None))
+        self.btn_end_krl.clicked.connect(functools.partial(self.on_btn_end_krl_clicked, group_name=None))
         self.btn_home.clicked.connect(functools.partial(self.on_btn_home_clicked, group_name=None))
         self.btn_park.clicked.connect(functools.partial(self.on_btn_park_clicked, group_name=None))
         
@@ -144,6 +153,34 @@ class RqtLwrDashboard(Dashboard):
             for group_name in self._state_buttons:
                 if self._state_buttons[group_name].enable_menu.isChecked():
                     self._lwrdb[group_name].command_mode_request()
+    
+    def on_btn_reset_fri_clicked(self, group_name=None):
+        """
+        reset the fri connection at the krl side
+        :param group_name: group concerned, default is None meaning act on all enabled groups
+
+        """
+        if group_name is not None:
+            if self._state_buttons[group_name].enable_menu.isChecked():
+                self._lwrdb[group_name].reset_fri()
+        else:
+            for group_name in self._state_buttons:
+                if self._state_buttons[group_name].enable_menu.isChecked():
+                    self._lwrdb[group_name].reset_fri()
+
+    def on_btn_end_krl_clicked(self, group_name=None):
+        """
+        terminate the krl prog
+        :param group_name: group concerned, default is None meaning act on all enabled groups
+
+        """
+        if group_name is not None:
+            if self._state_buttons[group_name].enable_menu.isChecked():
+                self._lwrdb[group_name].end_krl()
+        else:
+            for group_name in self._state_buttons:
+                if self._state_buttons[group_name].enable_menu.isChecked():
+                    self._lwrdb[group_name].end_krl()
 
     def on_btn_monitor_mode_clicked(self, group_name=None):
         """
