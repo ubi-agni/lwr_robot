@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # author Guillaume WALCK (2016)
 """
-Dashboard interface for LWR with friorocosokc.krl
+Dashboard interface for LWR with friorocosokc.krl and for lwr_panel_driver
 """
 
 import rospy
 from lwr_fri.msg import FriKrlData
+from std_srvs.srv import Empty
 
 OKC_ACK_IDX = 14
 OKC_SEQ_IDX = 13
@@ -42,16 +43,17 @@ class LwrDashboard(object):
         """
         self._krl_pub = None
         self._krl_sub = None
+        self._lwr_drive_on = None
+        self._lwr_drive_off = None
         self._last_krl_cmd = FriKrlData()
         self._last_krl_ret = None
         self._seq_cnt = None
         self._namespace = namespace
         self._seq_mismatch_count = 0
 
-
         self.init_publisher()
         self.init_subscriber()
-            
+        self.init_service()
 
     def init_publisher(self):
         """
@@ -73,6 +75,20 @@ class LwrDashboard(object):
             self._krl_sub = rospy.Subscriber("fromKRL", FriKrlData, self.callback, queue_size=10)
         return True
 
+    def init_service(self):
+        """
+        Initialize service to communicate with the lwr panel driver
+        """
+        if self._namespace is not None:
+            try:
+                self._lwr_drive_on = rospy.ServiceProxy(self._namespace + "/drive_on", Empty)
+                self._lwr_drive_off = rospy.ServiceProxy(self._namespace + "/drive_off", Empty)
+            except rospy.ServiceException, e:
+                print "Service call failed: %s"%e
+        else:
+            rospy.logerr("A namespace must be specified for panel operations")
+        return True
+
     def reset(self):
         """ reset internal command status
         used if missed ack and commands are blocked
@@ -85,12 +101,12 @@ class LwrDashboard(object):
         """
         incoming krl message processing (acknowledge)
         """
-        
+
         # initialize the counter on first message
         if self._seq_cnt is None:
             self._seq_cnt = data.intData[OKC_SEQ_IDX]
             rospy.loginfo("resetted sequence number to %d " % self._seq_cnt)
-            
+
         # check if incoming data is an acknowledge
         if data.boolData & (1 << 0):
 
@@ -112,9 +128,9 @@ class LwrDashboard(object):
                 self._last_krl_ret = data
             else:
                 self._seq_mismatch_count += 1
-                if (self._seq_mismatch_count % 5000 == 0):
+                if self._seq_mismatch_count % 5000 == 0:
                     rospy.logwarn("invalid seq number %d should be %d"
-                              % (data.intData[OKC_SEQ_IDX], self._seq_cnt))
+                                  % (data.intData[OKC_SEQ_IDX], self._seq_cnt))
                 # currently force the counter
                 #self._seq_cnt = data.intData[OKC_SEQ_IDX]
 
@@ -188,11 +204,17 @@ class LwrDashboard(object):
         Enable lwr motor drives (DRIVE ON)
         Should permit releasing brakes
         """
-        print "Enable motor is not yet implemented, as it requires o2i_drv.o on the KRC2"
+        if self._lwr_drive_on is not None:
+            self._lwr_drive_on()
+        else:
+            rospy.logwarn("Drive ON/OFF is not inialized properly")
 
     def disable_motors(self):
         """
         Disable lwr motor drives (DRIVE OFF)
         Should brake
         """
-        print "Disable motor is not yet implemented, as it requires o2i_drv.o on the KRC2"
+        if self._lwr_drive_off is not None:
+            self._lwr_drive_off()
+        else:
+            rospy.logwarn("Drive ON/OFF is not inialized properly")
