@@ -109,6 +109,9 @@ namespace gazebo
         bool DriveOffCb(std_srvs::Empty::Request  &req,
                               std_srvs::Empty::Response &res);
                               
+        void Brake(Eigen::Matrix<double, 7, 1> &pos, KDL::JntArray &grav);
+        bool brakes_on_;
+                              
         bool isValidRotation(KDL::Rotation &rot);
         /*
          *  \brief pointer to ros node
