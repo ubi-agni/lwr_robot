@@ -122,7 +122,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     
     if(_sdf->HasElement(joint_name)) {
       double init = _sdf->GetElement(joint_name)->Get<double>();
-      joint->SetAngle(0, init);
+      joint->SetPosition(0, init);
       brake_pos_(i) = init; // also lock brakes at init pos
     }
     
@@ -722,7 +722,7 @@ void LWRController::Brake(Eigen::Matrix<double, 7, 1> &pos, KDL::JntArray &grav)
   ROS_DEBUG_THROTTLE(5.0,"lwr enforcing brake_pos");
   //set the robot at same angles as brake pos
   for(unsigned int i = 0; i< LBR_MNJ; i++) {
-    joints_[i]->SetAngle(0, brake_pos_(i));
+    joints_[i]->SetPosition(0, brake_pos_(i));
     joints_[i]->SetForce(0, grav(i));  // needed for recovery otherwise forces builds up
     joints_[i]->SetVelocity(0, 0.0);
   }

@@ -40,6 +40,8 @@ include_directories(
 
 link_directories(${orocos_kdl_LIBRARY_DIRS})
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GAZEBO_CXX_FLAGS}")
+
 add_library(lwr_controller src/lwr_controller.cpp)
 set_target_properties(lwr_controller PROPERTIES LINK_FLAGS "${LD_FLAGS}")
 target_link_libraries(lwr_controller
