@@ -14,11 +14,11 @@ catkin_package(
 find_package(OROCOS-RTT REQUIRED)
 
 find_package(cmake_modules REQUIRED)
-find_package(Eigen REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 find_package(orocos_kdl REQUIRED)
 
-include_directories(include ${catkin_INCLUDE_DIRS} ${Eigen_INCLUDE_DIRS})
+include_directories(include ${catkin_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
 link_directories(${orocos_kdl_LIBRARY_DIRS})
 
 ros_generate_rtt_typekit(lwr_impedance_controller)
