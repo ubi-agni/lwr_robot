@@ -13,7 +13,6 @@ catkin_package(
 
 find_package(OROCOS-RTT REQUIRED)
 
-find_package(cmake_modules REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 find_package(orocos_kdl REQUIRED)
