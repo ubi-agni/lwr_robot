@@ -69,10 +69,10 @@ class ControlStateButton(MenuDashWidget):
         else:
             state_icon = 'ic-breaker.svg'
 
-        command_icon = ['bg-green.svg', state_icon]
+        command_icon = ['bg-red.svg', state_icon]
         monitor_on_icon = ['bg-yellow.svg', state_icon]
-        monitor_off_icon = ['bg-grey.svg', state_icon]
-        error_icon = ['bg-red.svg', state_icon, 'ol-err-badge.svg']
+        monitor_off_icon = ['bg-green.svg', state_icon]
+        error_icon = ['bg-grey.svg', state_icon, 'ol-err-badge.svg']
         disabled_icon = ['bg-light_grey.svg', state_icon]
 
         icons = [disabled_icon, error_icon, monitor_off_icon, monitor_on_icon, command_icon]
@@ -87,8 +87,11 @@ class ControlStateButton(MenuDashWidget):
 
         self.add_action('Command', functools.partial(self._parent.on_btn_command_mode_clicked, group_name=self._name))
         self.add_action('Monitor', functools.partial(self._parent.on_btn_monitor_mode_clicked, group_name=self._name))
+        self.add_action('Drive On', functools.partial(self._parent.on_btn_drive_on_clicked, group_name=self._name))
+        self.add_action('Drive Off', functools.partial(self._parent.on_btn_drive_off_clicked, group_name=self._name))
         self.add_action('Home', functools.partial(self._parent.on_btn_home_clicked, group_name=self._name))
         self.add_action('Park', functools.partial(self._parent.on_btn_park_clicked, group_name=self._name))
+
         self.enable_menu = self.add_action('Enable/Disable', self.on_enable_disable)
         self.enable_menu.setCheckable(True)
         self.enable_menu.setChecked(False)

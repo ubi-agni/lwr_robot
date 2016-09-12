@@ -85,18 +85,28 @@ class RqtLwrDashboard(Dashboard):
         self.chk_all.setChecked(True)
 
         # create buttons
-        self.btn_command_mode = QPushButton("command_mode")
-        self.btn_monitor_mode = QPushButton("monitor_mode")
+        self.btn_command_mode = QPushButton("command mode")
+        self.btn_monitor_mode = QPushButton("monitor mode")
+        self.btn_command_mode.setStyleSheet("background-color: rgb(197, 197, 197)")
+        self.btn_monitor_mode.setStyleSheet("background-color: rgb(197, 197, 197)")
+        self.btn_drive_on = QPushButton("drive on")
+        self.btn_drive_on.setStyleSheet("background-color: rgb(209, 149, 37)")
+        self.btn_drive_off = QPushButton("drive on")
+        self.btn_drive_off.setStyleSheet("background-color: rgb(90, 148, 95)")
         self.btn_reset_fri = QPushButton("reset fri")
         self.btn_end_krl = QPushButton("end krl")
         self.btn_home = QPushButton("home")
         self.btn_park = QPushButton("park")
         
-        # disable buttons by default
+        # disable some buttons by default
         self.btn_command_mode.setEnabled(False)
         self.btn_monitor_mode.setEnabled(False)
         self.btn_home.setEnabled(False)
         self.btn_park.setEnabled(False)
+        
+        # enable some other buttons
+        self.btn_drive_on.setEnabled(True)
+        self.btn_drive_off.setEnabled(True)
         
         self.btn_end_krl.setEnabled(True)
         self.btn_reset_fri.setEnabled(True)
@@ -106,6 +116,8 @@ class RqtLwrDashboard(Dashboard):
         vlayout.addLayout(hlayout)
         vlayout.addWidget(self.btn_command_mode)
         vlayout.addWidget(self.btn_monitor_mode)
+        vlayout.addWidget(self.btn_drive_on)
+        vlayout.addWidget(self.btn_drive_off)
         vlayout.addWidget(self.btn_reset_fri)
         vlayout.addWidget(self.btn_end_krl)
         vlayout.addWidget(self.btn_home)
@@ -114,6 +126,8 @@ class RqtLwrDashboard(Dashboard):
         # signals for buttons
         self.btn_command_mode.clicked.connect(functools.partial(self.on_btn_command_mode_clicked, group_name=None))
         self.btn_monitor_mode.clicked.connect(functools.partial(self.on_btn_monitor_mode_clicked, group_name=None))
+        self.btn_drive_on.clicked.connect(functools.partial(self.on_btn_drive_on_clicked, group_name=None))
+        self.btn_drive_off.clicked.connect(functools.partial(self.on_btn_drive_off_clicked, group_name=None))
         self.btn_reset_fri.clicked.connect(functools.partial(self.on_btn_reset_fri_clicked, group_name=None))
         self.btn_end_krl.clicked.connect(functools.partial(self.on_btn_end_krl_clicked, group_name=None))
         self.btn_home.clicked.connect(functools.partial(self.on_btn_home_clicked, group_name=None))
@@ -153,7 +167,35 @@ class RqtLwrDashboard(Dashboard):
             for group_name in self._state_buttons:
                 if self._state_buttons[group_name].enable_menu.isChecked():
                     self._lwrdb[group_name].command_mode_request()
-    
+
+    def on_btn_drive_on_clicked(self, group_name=None):
+        """
+        switch drive on
+        :param group_name: group concerned, default is None meaning act on all enabled groups
+
+        """
+        if group_name is not None:
+            if self._state_buttons[group_name].enable_menu.isChecked():
+                self._lwrdb[group_name].enable_motors()
+        else:
+            for group_name in self._state_buttons:
+                if self._state_buttons[group_name].enable_menu.isChecked():
+                    self._lwrdb[group_name].enable_motors()
+
+    def on_btn_drive_off_clicked(self, group_name=None):
+        """
+        switch drive on
+        :param group_name: group concerned, default is None meaning act on all enabled groups
+
+        """
+        if group_name is not None:
+            if self._state_buttons[group_name].enable_menu.isChecked():
+                self._lwrdb[group_name].disable_motors()
+        else:
+            for group_name in self._state_buttons:
+                if self._state_buttons[group_name].enable_menu.isChecked():
+                    self._lwrdb[group_name].disable_motors()
+
     def on_btn_reset_fri_clicked(self, group_name=None):
         """
         reset the fri connection at the krl side
@@ -306,10 +348,13 @@ class RqtLwrDashboard(Dashboard):
                     self._lwrdb[group_name].reset()
                     self.btn_command_mode.setEnabled(True)
                     self.btn_monitor_mode.setEnabled(True)
+                    self.btn_command_mode.setStyleSheet("background-color: rgb(153, 42, 43)")
+                    self.btn_monitor_mode.setStyleSheet("background-color: rgb(209, 149, 37)")
                 else:
-                    
                     self.btn_command_mode.setEnabled(False)
                     self.btn_monitor_mode.setEnabled(False)
+                    self.btn_command_mode.setStyleSheet("background-color: rgb(197, 197, 197)")
+                    self.btn_monitor_mode.setStyleSheet("background-color: rgb(197, 197, 197)")
 
             self._last_error[group_name] = error
             self._last_power_state[group_name] = power_state

@@ -207,7 +207,7 @@ class LwrDashboard(object):
         if self._lwr_drive_on is not None:
             self._lwr_drive_on()
         else:
-            rospy.logwarn("Drive ON/OFF is not inialized properly")
+            rospy.logwarn("Drive ON/OFF is not initialized properly")
 
     def disable_motors(self):
         """
@@ -217,4 +217,4 @@ class LwrDashboard(object):
         if self._lwr_drive_off is not None:
             self._lwr_drive_off()
         else:
-            rospy.logwarn("Drive ON/OFF is not inialized properly")
+            rospy.logwarn("Drive ON/OFF is not initialized properly")
