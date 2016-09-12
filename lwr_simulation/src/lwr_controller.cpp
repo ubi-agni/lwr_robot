@@ -96,9 +96,13 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     ros::init(argc,argv,"gazebo",ros::init_options::NoSigintHandler|ros::init_options::AnonymousName);
   }
   if (_sdf->HasElement("auto_on"))
+  {
     auto_on_ = _sdf->GetElement("auto_on")->Get<bool>();
+    gzdbg << "auto_on : " << auto_on_ << "\n";
+  }
   else
   {
+    gzdbg << "auto_on: default to true" << "\n";
     auto_on_ = true;
   }
 
@@ -179,7 +183,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   //m_msr_data.robot.control = FRI_CTRL_JNT_IMP;
   m_msr_data.robot.control = FRI_CTRL_POSITION;
   m_msr_data.intf.state = FRI_STATE_MON;
-  m_msr_data.robot.power = 0xFFFF;
+  m_msr_data.robot.power = 0x0000;
 
   m_msr_data.robot.error = 0x0000;
   m_msr_data.robot.warning = 0x0000;
@@ -308,14 +312,20 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
       m_msr_data.intf.state = FRI_STATE_MON;
     }
     drive_on_ = false;
-  } 
-  else 
+    m_msr_data.robot.power = 0x0;
+  }
+  else
   {
     if (auto_on_)
     {
       drive_on_ = true;
+      m_msr_data.robot.power = 0xFFFF;
       // don't release brakes here, only if valid data
-      m_msr_data.intf.state = FRI_STATE_CMD;
+      if (m_msr_data.intf.state == FRI_STATE_MON)
+      {
+        ROS_INFO("communication ok, changing to FRI_STATE_CMD");
+        m_msr_data.intf.state = FRI_STATE_CMD;
+      }
     }
   }
 
@@ -692,6 +702,7 @@ bool LWRController::DriveOnCb(std_srvs::Empty::Request  &req,
                               std_srvs::Empty::Response &res)
 {
   drive_on_ = true;
+  m_msr_data.robot.power = 0xFFFF;
   return true;
 }
 
@@ -704,6 +715,7 @@ bool LWRController::DriveOffCb(std_srvs::Empty::Request  &req,
     brake_pos_(i) = joint_pos_(i);
   }
   drive_on_ = false;
+  m_msr_data.robot.power = 0x0;
   return true;
 }
 
