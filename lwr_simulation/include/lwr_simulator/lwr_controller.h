@@ -76,6 +76,7 @@
 #define OROCOS_OKC_RESET_FRI 98
 #define OROCOS_OKC_END_KRL 99
 
+// index starts at 0 in cpp so value is one less than in krl
 #define OKC_ACK_IDX 14
 #define OKC_SEQ_IDX 13
 #define OKC_CMD_IDX 15
