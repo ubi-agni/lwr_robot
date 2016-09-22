@@ -380,7 +380,8 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
                   ROS_DEBUG_NAMED("krl","switched to FRISTATE_CMD");
                 }
               }
-              m_msr_data.krl.intData[OKC_ACK_IDX] = 1;
+              m_msr_data.krl.intData[OKC_ACK_IDX] = OKC_FRI_START;
+              m_msr_data.krl.intData[OKC_SEQ_IDX]++;
               m_msr_data.krl.intData[OKC_CMD_IDX] = 100;
               ctrl_mode_switched = true;
               break;
@@ -391,14 +392,24 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               {
                 m_msr_data.intf.state = FRI_STATE_MON;
               }
-              m_msr_data.krl.intData[OKC_ACK_IDX] = 2;
+              m_msr_data.krl.intData[OKC_ACK_IDX] = OKC_FRI_STOP;
+              m_msr_data.krl.intData[OKC_SEQ_IDX]++;
               m_msr_data.krl.intData[OKC_CMD_IDX] = 101;
+              ctrl_mode_switched = true;
+              break;
+              
+            case OKC_RESET_STATUS:
+              ROS_DEBUG_NAMED("krl","reset counters");
+              m_msr_data.krl.intData[OKC_ACK_IDX] = OKC_RESET_STATUS;
+              m_msr_data.krl.intData[OKC_SEQ_IDX] = 0;
+              m_msr_data.krl.intData[OKC_CMD_IDX] = 111;
               ctrl_mode_switched = true;
               break;
 
             case OKC_SWITCH_CP_CONTROL:
               m_msr_data.robot.control = FRI_CTRL_CART_IMP;
-              m_msr_data.krl.intData[OKC_ACK_IDX] = 6;
+              m_msr_data.krl.intData[OKC_ACK_IDX] = OKC_SWITCH_CP_CONTROL;
+              m_msr_data.krl.intData[OKC_SEQ_IDX]++;
               m_msr_data.krl.intData[OKC_CMD_IDX] = 104;
 
 
@@ -423,15 +434,27 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 
             case OKC_SWITCH_AXIS_CONTROL:
               m_msr_data.robot.control = FRI_CTRL_JNT_IMP;
-              m_msr_data.krl.intData[OKC_ACK_IDX] = 7;
+              m_msr_data.krl.intData[OKC_ACK_IDX] = OKC_SWITCH_AXIS_CONTROL;
+              m_msr_data.krl.intData[OKC_SEQ_IDX]++;
               m_msr_data.krl.intData[OKC_CMD_IDX] = 105;
               ctrl_mode_switched = true;
               break;
 
             case OKC_SWITCH_POSITION:
               m_msr_data.robot.control = FRI_CTRL_POSITION;
-              m_msr_data.krl.intData[OKC_ACK_IDX] = 9;
+              m_msr_data.krl.intData[OKC_ACK_IDX] = OKC_SWITCH_POSITION;
+              m_msr_data.krl.intData[OKC_SEQ_IDX]++;
               m_msr_data.krl.intData[OKC_CMD_IDX] = 107;
+              ctrl_mode_switched = true;
+              break;
+
+            case OKC_SWITCH_GRAVCOMP:
+              // not implemented, unknown mode in the real robot, what does it do ?
+              //m_msr_data.robot.control = FRI_CTRL_JNT_IMP; 
+              //gc_only_mode_ = true;
+              m_msr_data.krl.intData[OKC_ACK_IDX] = OKC_SWITCH_GRAVCOMP;
+              m_msr_data.krl.intData[OKC_SEQ_IDX]++;
+              m_msr_data.krl.intData[OKC_CMD_IDX] = 106;
               ctrl_mode_switched = true;
               break;
 
@@ -451,7 +474,8 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
                   m_msr_data.robot.control = FRI_CTRL_OTHER;
                   break;
               }
-              //m_msr_data.krl.intData[OKC_ACK_IDX] = 9;
+              //m_msr_data.krl.intData[OKC_ACK_IDX] = OROCOS_OKC_SWITCH_CONTROL_MODE;
+              //m_msr_data.krl.intData[OKC_SEQ_IDX]++;
               //m_msr_data.krl.intData[OKC_CMD_IDX] = 107;
               ctrl_mode_switched = true;
               break;
