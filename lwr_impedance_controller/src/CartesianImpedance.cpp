@@ -123,11 +123,11 @@ private:
 		port_CartesianWrenchCommand.read(force_add);
 		port_CartesianVelocity.read(cart_vel);
 
-		tf::PoseMsgToKDL(cart_pos, T);
-		tf::PoseMsgToKDL(cart_pos_cmd, T_D);
+		tf::poseMsgToKDL(cart_pos, T);
+		tf::poseMsgToKDL(cart_pos_cmd, T_D);
 
 		if (port_Tool.read(tool_pos) == RTT::NewData) {
-			tf::PoseMsgToKDL(tool_pos, T_T);
+			tf::poseMsgToKDL(tool_pos, T_T);
 		}
 
 		// compute cartesian position of tool
