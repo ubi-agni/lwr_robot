@@ -219,8 +219,8 @@ class RqtLwrDashboard(Dashboard):
         self.timer["right_arm"] = QTimer()
         self.timer["right_arm"].timeout.connect(functools.partial(self.on_timeout, group_name="right_arm"))
 
-        self.timer["left_arm"].start(2000) # 5 sec timeout
-        self.timer["right_arm"].start(2000) # 5 sec timeout
+        self.timer["left_arm"].start(2000)  # 5 sec timeout
+        self.timer["right_arm"].start(2000)  # 5 sec timeout
 
     def init_subscribers(self, group_name=None, namespace=None):
         if group_name is not None:
@@ -232,7 +232,7 @@ class RqtLwrDashboard(Dashboard):
             if ns is not None:
                 if group_name not in self._diag_subs:
                     self._diag_subs[group_name] = rospy.Subscriber("/" + ns + "/diagnostics/", DiagnosticArray,
-                                                               functools.partial(self.diag_callback, group_name=group_name))
+                                                                   functools.partial(self.diag_callback, group_name=group_name))
                 self._diag_ns[group_name] = ns
 
     def on_timeout(self, group_name=None):
@@ -285,7 +285,7 @@ class RqtLwrDashboard(Dashboard):
 
     def on_btn_drive_off_clicked(self, group_name=None):
         """
-        switch drive on
+        switch drive off
         :param group_name: group concerned, default is None meaning act on all enabled groups
 
         """
@@ -362,20 +362,20 @@ class RqtLwrDashboard(Dashboard):
                 flags |= QMessageBox.Abort
                 msg = "CHECK the " + group_name + " is SAFE to go HOME pose before proceeding !\n\
                        RESET your applications to restart from Home pose"
-                
+
                 response = QMessageBox.warning(self._main_widget, "Warning!", msg, flags, QMessageBox.Abort)
                 if response == QMessageBox.Ok:
                     print "Proceeding to go home"
                     self._lwrdb[group_name].move_start_pos()
-                   
+
                 else:
-                     print "Canceled go home request"
+                    print "Canceled go home request"
         else:
             '''for group_name in self._state_buttons:
                 if self._state_buttons[group_name].enable_menu.isChecked():
                     self._lwrdb[group_name].move_start_pos()'''
             print "Going home not supported for dual arm yet"
-            
+
     def on_btn_park_clicked(self, group_name=None):
         """
         move to park
@@ -392,7 +392,7 @@ class RqtLwrDashboard(Dashboard):
                 flags |= QMessageBox.Abort
                 msg = "CHECK the " + group_name + " is SAFE to go PARK pose before proceeding !\n\
                        RESET your applications to restart from PARK pose"
-                
+
                 response = QMessageBox.warning(self._main_widget, "Warning!", msg, flags, QMessageBox.Abort)
                 if response == QMessageBox.Ok:
                     print "Proceeding to park pose"
@@ -479,12 +479,10 @@ class RqtLwrDashboard(Dashboard):
                 self.btn_monitor_mode.setEnabled(False)
                 self.btn_command_mode.setStyleSheet("background-color: rgb(197, 197, 197)")
                 self.btn_monitor_mode.setStyleSheet("background-color: rgb(197, 197, 197)")
-            
+
             self._last_power_state[group_name] = power_state
             self._last_control_state[group_name] = control_state
 
         self._last_error[group_name] = error
 
-
-
-    #def shutdown_dashboard(self):
+    # def shutdown_dashboard(self):
