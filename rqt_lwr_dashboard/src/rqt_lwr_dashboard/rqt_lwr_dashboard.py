@@ -31,7 +31,7 @@ from rqt_robot_dashboard.dashboard import Dashboard
 
 from python_qt_binding.QtCore import QSize
 from QtGui import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLabel, \
-    QCheckBox, QMessageBox
+    QTimer, QCheckBox, QMessageBox
 
 from lwr_dashboard.lwr_dashboard import LwrDashboard
 
@@ -208,6 +208,18 @@ class RqtLwrDashboard(Dashboard):
         self.init_subscribers("left_arm", "la")
         self.init_subscribers("right_arm", "ra")
 
+        self.watchdog_timeout = {}
+        self.watchdog_timeout["left_arm"] = True
+        self.watchdog_timeout["right_arm"] = True
+
+        self.timer = {}
+        self.timer["left_arm"] = QTimer()
+        self.timer["left_arm"].timeout.connect(functools.partial(self.on_timeout, group_name="left_arm"))
+        self.timer["right_arm"] = QTimer()
+        self.timer["right_arm"].timeout.connect(functools.partial(self.on_timeout, group_name="right_arm"))
+
+        self.timer["left_arm"].start(2000) # 5 sec timeout
+        self.timer["right_arm"].start(2000) # 5 sec timeout
 
     def init_subscribers(self, group_name=None, namespace=None):
         if group_name is not None:
@@ -222,6 +234,17 @@ class RqtLwrDashboard(Dashboard):
                                                                functools.partial(self.diag_callback, group_name=group_name))
                 self._diag_ns[group_name] = ns
 
+    def on_timeout(self, group_name=None):
+        if group_name is not None:
+            if self.watchdog_timeout[group_name]:
+                self.change_button_state(group_name)
+                # cleanup connection that have a publisher and not data coming in
+                if self._diag_subs[group_name].get_num_connections() > 0:
+                    self._diag_subs[group_name].unregister()
+                    del self._diag_subs[group_name]
+                    self.init_subscribers(group_name)
+            else:
+                self.watchdog_timeout[group_name] = True
 
     def on_enable_all_clicked(self):
         """
@@ -400,6 +423,8 @@ class RqtLwrDashboard(Dashboard):
         control_state = None
         error = False
         if group_name in self._state_buttons:
+            # reset timer
+            self.watchdog_timeout[group_name] = False
             if len(msg.status) > 1:
                 if msg.status[1].name == "lwr robot state":
                     for prop in msg.status[1].values:
