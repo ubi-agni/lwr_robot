@@ -40,7 +40,7 @@ from python_qt_binding.QtCore import QSize, pyqtSignal
 
 from rqt_robot_dashboard.widgets import MenuDashWidget
 
-from python_qt_binding.QtGui import QMessageBox
+from python_qt_binding.QtWidgets import QMessageBox
 
 
 class ControlStateButton(MenuDashWidget):

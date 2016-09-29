@@ -30,8 +30,8 @@ import functools
 from rqt_robot_dashboard.dashboard import Dashboard
 
 from python_qt_binding.QtCore import QSize
-from QtGui import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, \
-    QCheckBox, QMessageBox
+from QtWidgets import QPushButton, QWidget, \
+    QCheckBox, QMessageBox, QVBoxLayout, QHBoxLayout
 
 from lwr_dashboard.lwr_dashboard import LwrDashboard
 
