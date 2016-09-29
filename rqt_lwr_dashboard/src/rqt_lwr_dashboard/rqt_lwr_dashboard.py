@@ -61,26 +61,42 @@ class RqtLwrDashboard(Dashboard):
 
         # TODO read this list on the parameters
         group_names = ["left_arm", "right_arm"]
-        
+
         self._last_error["left_arm"] = None
         self._last_power_state["left_arm"] = None
         self._last_control_state["left_arm"] = None
         self._last_error["right_arm"] = None
         self._last_power_state["right_arm"] = None
         self._last_control_state["right_arm"] = None
-        
+
         self._lwrdb = {}
-        self._lwrdb["left_arm"] = LwrDashboard(namespace="la")
         self._lwrdb["right_arm"] = LwrDashboard(namespace="ra")
-        
+        self._lwrdb["left_arm"] = LwrDashboard(namespace="la")
 
         # create as many buttons as groups received
-        for group_name in group_names:
+        for i, group_name in enumerate(group_names):
             self._state_buttons[group_name] = ControlStateButton(group_name, self)
 
         self._main_widget = QWidget()
-        vlayout = QVBoxLayout()
-        hlayout = QHBoxLayout()
+        vlayout_main = QVBoxLayout()
+        # enable
+        hlayout_enable = QHBoxLayout()
+        # power+fri
+        hlayout_power_fri = QHBoxLayout()
+        # power
+        vlayout_power = QVBoxLayout()
+        # fri
+        hlayout_fricom_header = QHBoxLayout()
+        hlayout_fricom_quality = QHBoxLayout()
+        vlayout_fri = QVBoxLayout()
+        # move
+        vlayout_move = QVBoxLayout()
+
+        # control
+        vlayout_control_mode = QVBoxLayout()
+        hlayout_control_mode = {}
+        hlayout_control_mode["left_arm"] = QHBoxLayout()
+        hlayout_control_mode["right_arm"] = QHBoxLayout()
 
         self.chk_all = QCheckBox("enable_all")
         self.chk_all.setChecked(True)
@@ -98,31 +114,75 @@ class RqtLwrDashboard(Dashboard):
         self.btn_end_krl = QPushButton("end krl")
         self.btn_home = QPushButton("home")
         self.btn_park = QPushButton("park")
-        
+        self.btn_ctrl_change_left = QPushButton("change")
+        self.btn_ctrl_change_right = QPushButton("change")
+
+        self.lbl_fricom = {}
+        self.lbl_fricom["left_arm"] = QLabel("BAD")
+        self.lbl_fricom["right_arm"] = QLabel("BAD")
+
+        self.lbl_control_mode = {}
+        self.lbl_control_mode["left_arm"] = QLabel("undefined")
+        self.lbl_control_mode["right_arm"] = QLabel("undefined")
+
         # disable some buttons by default
         self.btn_command_mode.setEnabled(False)
         self.btn_monitor_mode.setEnabled(False)
         self.btn_home.setEnabled(False)
         self.btn_park.setEnabled(False)
-        
+
         # enable some other buttons
         self.btn_drive_on.setEnabled(True)
         self.btn_drive_off.setEnabled(True)
-        
+
         self.btn_end_krl.setEnabled(True)
         self.btn_reset_fri.setEnabled(True)
 
         # place buttons
-        hlayout.addWidget(self.chk_all)
-        vlayout.addLayout(hlayout)
-        vlayout.addWidget(self.btn_command_mode)
-        vlayout.addWidget(self.btn_monitor_mode)
-        vlayout.addWidget(self.btn_drive_on)
-        vlayout.addWidget(self.btn_drive_off)
-        vlayout.addWidget(self.btn_reset_fri)
-        vlayout.addWidget(self.btn_end_krl)
-        vlayout.addWidget(self.btn_home)
-        vlayout.addWidget(self.btn_park)
+        hlayout_enable.addWidget(self.chk_all)
+
+        vlayout_power.setAlignment(Qt.AlignCenter)
+        vlayout_power.addWidget(QLabel("Power state"))
+        vlayout_power.addWidget(self.btn_command_mode)
+        vlayout_power.addWidget(self.btn_monitor_mode)
+        vlayout_power.addWidget(self.btn_drive_on)
+        vlayout_power.addWidget(self.btn_drive_off)
+
+        hlayout_fricom_header.setAlignment(Qt.AlignCenter)
+        hlayout_fricom_header.addWidget(QLabel("left"))
+        hlayout_fricom_header.addWidget(QLabel("right"))
+        hlayout_fricom_quality.setAlignment(Qt.AlignCenter)
+        hlayout_fricom_quality.addWidget(self.lbl_fricom["left_arm"])
+        hlayout_fricom_quality.addWidget(self.lbl_fricom["right_arm"])
+
+        vlayout_fri.addWidget(QLabel("FRI"))
+        vlayout_fri.addLayout(hlayout_fricom_header)
+        vlayout_fri.addLayout(hlayout_fricom_quality)
+        vlayout_fri.addWidget(self.btn_reset_fri)
+        vlayout_fri.addWidget(self.btn_end_krl)
+
+        vlayout_move.addWidget(QLabel("Move"))
+        vlayout_move.addWidget(self.btn_home)
+        vlayout_move.addWidget(self.btn_park)
+
+        hlayout_control_mode["left_arm"].addWidget(QLabel("left_arm:"))
+        hlayout_control_mode["left_arm"].addWidget(self.lbl_control_mode["left_arm"])
+        hlayout_control_mode["left_arm"].addWidget(self.btn_ctrl_change_left)
+        hlayout_control_mode["right_arm"].addWidget(QLabel("right_arm:"))
+        hlayout_control_mode["right_arm"].addWidget(self.lbl_control_mode["right_arm"])
+        hlayout_control_mode["right_arm"].addWidget(self.btn_ctrl_change_right)
+
+        vlayout_control_mode.addWidget(QLabel("Control mode"))
+        vlayout_control_mode.addLayout(hlayout_control_mode["left_arm"])
+        vlayout_control_mode.addLayout(hlayout_control_mode["right_arm"])
+
+        hlayout_power_fri.addLayout(vlayout_power)
+        hlayout_power_fri.addLayout(vlayout_fri)
+
+        vlayout_main.addLayout(hlayout_enable)
+        vlayout_main.addLayout(hlayout_power_fri)
+        vlayout_main.addLayout(vlayout_control_mode)
+        vlayout_main.addLayout(vlayout_move)
 
         # signals for buttons
         self.btn_command_mode.clicked.connect(functools.partial(self.on_btn_command_mode_clicked, group_name=None))
@@ -133,19 +193,36 @@ class RqtLwrDashboard(Dashboard):
         self.btn_end_krl.clicked.connect(functools.partial(self.on_btn_end_krl_clicked, group_name=None))
         self.btn_home.clicked.connect(functools.partial(self.on_btn_home_clicked, group_name=None))
         self.btn_park.clicked.connect(functools.partial(self.on_btn_park_clicked, group_name=None))
-        
+
+        self.btn_ctrl_change_left.clicked.connect(functools.partial(self.on_btn_ctrl_change_clicked, group_name="left_arm"))
+        self.btn_ctrl_change_right.clicked.connect(functools.partial(self.on_btn_ctrl_change_clicked, group_name="right_arm"))
+
         self.chk_all.stateChanged.connect(self.on_enable_all_clicked)
 
-        self._main_widget.setLayout(vlayout)
+        self._main_widget.setLayout(vlayout_main)
         self.context.add_widget(self._main_widget)
         # self._main_widget.addLayout(hlayout)
         self._widget_initialized = True
 
         self._diag_subs = {}
-        self._diag_subs["left_arm"] = rospy.Subscriber("/la/diagnostics/", DiagnosticArray,
-                                                       functools.partial(self.diag_callback, group_name="left_arm"))
-        self._diag_subs["right_arm"] = rospy.Subscriber("/ra/diagnostics/", DiagnosticArray,
-                                                        functools.partial(self.diag_callback, group_name="right_arm"))
+        self._diag_ns = {}
+        self.init_subscribers("left_arm", "la")
+        self.init_subscribers("right_arm", "ra")
+
+
+    def init_subscribers(self, group_name=None, namespace=None):
+        if group_name is not None:
+            ns = namespace
+            if namespace is None:
+                if group_name in self._diag_ns:
+                    ns = self._diag_ns[group_name]
+
+            if ns is not None:
+                if group_name not in self._diag_subs:
+                    self._diag_subs[group_name] = rospy.Subscriber("/" + ns + "/diagnostics/", DiagnosticArray,
+                                                               functools.partial(self.diag_callback, group_name=group_name))
+                self._diag_ns[group_name] = ns
+
 
     def on_enable_all_clicked(self):
         """
@@ -196,6 +273,14 @@ class RqtLwrDashboard(Dashboard):
             for group_name in self._state_buttons:
                 if self._state_buttons[group_name].enable_menu.isChecked():
                     self._lwrdb[group_name].disable_motors()
+
+    def on_btn_ctrl_change_clicked(self, group_name=None):
+        """
+        request a control mode change
+        :param group_name: group concerned, default is None meaning act on all enabled groups
+
+        """
+        print "not yet implemented"
 
     def on_btn_reset_fri_clicked(self, group_name=None):
         """
@@ -330,35 +415,51 @@ class RqtLwrDashboard(Dashboard):
                         if "State" in prop.key:
                             control_state = prop.value
 
-            if error:
+            self.change_button_state(group_name, power_state, control_state, control_strategy, error)
+
+    def change_button_state(self, group_name, power_state=None, control_state=None, control_strategy="undefined", error=False):
+        # update buttons on state change
+
+        if error:
                 self._state_buttons[group_name].set_state("error")
-            else:
-                if power_state is not None and control_state is not None:
-                    if power_state == "0000000":
-                        self._state_buttons[group_name].set_state("monitor_off")
-                    elif power_state == "1111111" and control_state == "monitor":
-                        self._state_buttons[group_name].set_state("monitor_on")
-                    elif power_state == "1111111" and control_state == "command":
-                        self._state_buttons[group_name].set_state("command")
-                    else:
-                        print "Invalid states power:", power_state, ", control_state:", control_state
-
-            # update buttons on power state change
-            if self._last_power_state[group_name] != power_state and error is False:
-                if power_state == "1111111":
-                    self._lwrdb[group_name].reset()
-                    self.btn_command_mode.setEnabled(True)
-                    self.btn_monitor_mode.setEnabled(True)
-                    self.btn_command_mode.setStyleSheet("background-color: rgb(153, 42, 43)")
-                    self.btn_monitor_mode.setStyleSheet("background-color: rgb(209, 149, 37)")
+        else:
+            if power_state is not None and control_state is not None:
+                if power_state == "0000000":
+                    self._state_buttons[group_name].set_state("monitor_off")
+                elif power_state == "1111111" and control_state == "monitor":
+                    self._state_buttons[group_name].set_state("monitor_on")
+                elif power_state == "1111111" and control_state == "command":
+                    self._state_buttons[group_name].set_state("command")
                 else:
-                    self.btn_command_mode.setEnabled(False)
-                    self.btn_monitor_mode.setEnabled(False)
-                    self.btn_command_mode.setStyleSheet("background-color: rgb(197, 197, 197)")
-                    self.btn_monitor_mode.setStyleSheet("background-color: rgb(197, 197, 197)")
+                    print "Invalid states power:", power_state, ", control_state:", control_state
+            else:
+                self._state_buttons[group_name].set_state("disabled")
+                self._last_power_state[group_name] = None
+                self._last_control_state[group_name] = None
 
-            self._last_error[group_name] = error
+            if control_strategy is not None:
+                self.lbl_control_mode[group_name].setText(control_strategy)
+            else:
+                self.lbl_control_mode[group_name].setText("undefined")
+
+        if self._last_power_state[group_name] != power_state and power_state is not None and error is False:
+            if power_state == "1111111":
+                self._lwrdb[group_name].reset()
+                self.btn_command_mode.setEnabled(True)
+                self.btn_monitor_mode.setEnabled(True)
+                self.btn_command_mode.setStyleSheet("background-color: rgb(153, 42, 43)")
+                self.btn_monitor_mode.setStyleSheet("background-color: rgb(209, 149, 37)")
+            else:
+                self.btn_command_mode.setEnabled(False)
+                self.btn_monitor_mode.setEnabled(False)
+                self.btn_command_mode.setStyleSheet("background-color: rgb(197, 197, 197)")
+                self.btn_monitor_mode.setStyleSheet("background-color: rgb(197, 197, 197)")
+            
             self._last_power_state[group_name] = power_state
             self._last_control_state[group_name] = control_state
+
+        self._last_error[group_name] = error
+
+
 
     #def shutdown_dashboard(self):
