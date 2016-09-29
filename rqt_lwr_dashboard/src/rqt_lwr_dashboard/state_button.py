@@ -57,7 +57,7 @@ class ControlStateButton(MenuDashWidget):
         :param group_index: Index of the group
         :type group_index: int
         """
-        
+
         self._serial = 0
         self._parent = parent
         self._name = group_name
@@ -76,7 +76,7 @@ class ControlStateButton(MenuDashWidget):
         disabled_icon = ['bg-light_grey.svg', state_icon]
 
         icons = [disabled_icon, error_icon, monitor_off_icon, monitor_on_icon, command_icon]
-        self._state_dict= {"disabled": 0, "error": 1, "monitor_off": 2, "monitor_on": 3, "command": 4}
+        self._state_dict = {"disabled": 0, "error": 1, "monitor_off": 2, "monitor_on": 3, "command": 4}
 
         super(ControlStateButton, self).__init__('State:' + group_name, icons=icons, icon_paths=[['rqt_lwr_dashboard', 'images']])
 
@@ -99,8 +99,7 @@ class ControlStateButton(MenuDashWidget):
 
         self._set_enabled_signal.connect(self.on_enable_disable)
 
-        
-        self._pending_msg =  None
+        self._pending_msg = None
         self._state = None
         self._last_status_msg = None
         self.setToolTip(group_name)
@@ -170,4 +169,3 @@ class ControlStateButton(MenuDashWidget):
         for action in self._menu.actions():
             if not action.isCheckable():
                 action.setEnabled(val)
-
