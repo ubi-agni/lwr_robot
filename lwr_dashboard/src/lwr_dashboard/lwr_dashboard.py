@@ -8,6 +8,8 @@ import rospy
 from lwr_fri.msg import FriKrlData
 from std_srvs.srv import Empty
 
+LWR_DOF = 7
+
 OKC_ACK_IDX = 14
 OKC_SEQ_IDX = 13
 OKC_CMD_IDX = 15
@@ -132,9 +134,9 @@ class LwrDashboard(object):
                     rospy.logwarn("invalid seq number %d should be %d"
                                   % (data.intData[OKC_SEQ_IDX], self._seq_cnt))
                 # currently force the counter
-                #self._seq_cnt = data.intData[OKC_SEQ_IDX]
+                # self._seq_cnt = data.intData[OKC_SEQ_IDX]
 
-    def krl_request(self, cmd):
+    def krl_request(self, cmd, intdata=None, realdata=None):
         """
         generic krl command request
         """
@@ -146,6 +148,12 @@ class LwrDashboard(object):
             if self._seq_cnt is not None:
                 msg = FriKrlData()
                 msg.intData[OKC_CMD_IDX] = cmd
+                if intdata is not None:
+                    for key in intdata:
+                        msg.intData[key] = intdata[key]
+                if realdata is not None:
+                    for key in realdata:
+                        msg.realData[key] = realdata[key]
                 self._seq_cnt += 1
                 self._krl_pub.publish(msg)
                 self._last_krl_cmd = msg
@@ -187,6 +195,84 @@ class LwrDashboard(object):
         """
         return self.krl_request(OROCOS_OKC_END_KRL)
 
+    def switch_cartesian_impedance_control(self):
+        """
+        Request cartesian control mode (strategy 20)
+        """
+        return self.krl_request(OKC_SWITCH_CP_CONTROL)
+
+    def switch_joint_impedance_control(self):
+        """
+        Request axis control (joint impedance) mode (strategy 30)
+        """
+        return self.krl_request(OKC_SWITCH_AXIS_CONTROL)
+
+    def switch_joint_control(self):
+        """
+        Request axis control (joint) mode (strategy 10)
+        """
+        return self.krl_request(OKC_SWITCH_POSITION)
+
+    def switch_control_mode(self, mode=None):
+        """
+        Request control mode change
+        """
+        return self.krl_request(OROCOS_OKC_SWITCH_CONTROL_MODE)
+
+    def set_axis_stiffness_damping(self, stiffness=None, damping=None):
+        """
+        Set stiffness and damping in axis mode
+        """
+        mystiffness = stiffness
+        if stiffness is not None:
+            if len(stiffness) == LWR_DOF:
+                mystiffness = dict([(8, stiffness[0]),
+                                    (9, stiffness[1]),
+                                    (10, stiffness[2]),
+                                    (11, stiffness[3]),
+                                    (12, stiffness[4]),
+                                    (13, stiffness[5]),
+                                    (14, stiffness[6])])
+
+        mydamping = damping
+        if damping is not None:
+            if len(damping) == LWR_DOF:
+                mydamping = dict([(9, damping[0]),
+                                  (10, damping[1]),
+                                  (11, damping[2]),
+                                  (12, damping[3]),
+                                  (13, damping[4]),
+                                  (14, damping[5]),
+                                  (15, damping[6])])
+
+        return self.krl_request(OKC_SET_AXIS_STIFFNESS_DAMPING, mystiffness, mydamping)
+
+    def set_cp_stiffness_damping(self, stiffness=None, damping=None):
+        """
+        Set stiffness and damping in axis mode
+        """
+        mystiffness = stiffness
+        if stiffness is not None:
+            if len(stiffness) == LWR_DOF:
+                mystiffness = dict([(9, stiffness[0]),
+                                    (10, stiffness[1]),
+                                    (11, stiffness[2]),
+                                    (12, stiffness[3]),
+                                    (13, stiffness[4]),
+                                    (14, stiffness[5])])
+
+        mydamping = damping
+        if damping is not None:
+            if len(damping) == LWR_DOF:
+                mydamping = dict([(10, damping[0]),
+                                  (11, damping[1]),
+                                  (12, damping[2]),
+                                  (13, damping[3]),
+                                  (14, damping[4]),
+                                  (15, damping[5])])
+
+        return self.krl_request(OKC_SET_CP_STIFFNESS_DAMPING, mystiffness, mydamping)
+
     def move_park_pos(self):
         """
         Request move_part_pos
@@ -198,6 +284,23 @@ class LwrDashboard(object):
         Request move_start_pos
         """
         return self.krl_request(OKC_MOVE_START_POSITION)
+
+    def move_to_axis_pos(self, jnt_pos=None):
+        """
+        Request move to jnt_pos
+        """
+        myjnt_pos = jnt_pos
+        if jnt_pos is not None:
+            if len(jnt_pos) == LWR_DOF:
+                myjnt_pos = dict([(9, jnt_pos[0]),
+                                  (10, jnt_pos[1]),
+                                  (11, jnt_pos[2]),
+                                  (12, jnt_pos[3]),
+                                  (13, jnt_pos[4]),
+                                  (14, jnt_pos[5]),
+                                  (15, jnt_pos[6])])
+
+        return self.krl_request(OROCOS_OKC_MOVE_AXIS_POS, None, myjnt_pos)
 
     def enable_motors(self):
         """

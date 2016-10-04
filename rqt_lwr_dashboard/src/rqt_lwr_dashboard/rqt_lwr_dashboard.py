@@ -57,6 +57,7 @@ class RqtLwrDashboard(Dashboard):
         self._last_error = {}
         self._last_power_state = {}
         self._last_control_state = {}
+        self._last_control_strategy = {}
 
         # TODO read this list on the parameters
         group_names = ["left_arm", "right_arm"]
@@ -64,9 +65,11 @@ class RqtLwrDashboard(Dashboard):
         self._last_error["left_arm"] = None
         self._last_power_state["left_arm"] = None
         self._last_control_state["left_arm"] = None
+        self._last_control_strategy["left_arm"] = None
         self._last_error["right_arm"] = None
         self._last_power_state["right_arm"] = None
         self._last_control_state["right_arm"] = None
+        self._last_control_strategy["right_arm"] = None
 
         self._lwrdb = {}
         self._lwrdb["right_arm"] = LwrDashboard(namespace="ra")
@@ -113,16 +116,19 @@ class RqtLwrDashboard(Dashboard):
         self.btn_end_krl = QPushButton("end krl")
         self.btn_home = QPushButton("home")
         self.btn_park = QPushButton("park")
-        self.btn_ctrl_change_left = QPushButton("change")
-        self.btn_ctrl_change_right = QPushButton("change")
+        self.btn_ctrl = {}
+        self.btn_ctrl["left_arm"] = {}
+        self.btn_ctrl["left_arm"]["Position"] = QPushButton("Jnt")
+        self.btn_ctrl["left_arm"]["Cartesian impedance"] = QPushButton("CartImp")
+        self.btn_ctrl["left_arm"]["Joint impedance"] = QPushButton("JntImp")
+        self.btn_ctrl["right_arm"] = {}
+        self.btn_ctrl["right_arm"]["Position"] = QPushButton("Jnt")
+        self.btn_ctrl["right_arm"]["Cartesian impedance"] = QPushButton("CartImp")
+        self.btn_ctrl["right_arm"]["Joint impedance"] = QPushButton("JntImp")
 
         self.lbl_fricom = {}
         self.lbl_fricom["left_arm"] = QLabel("BAD")
         self.lbl_fricom["right_arm"] = QLabel("BAD")
-
-        self.lbl_control_mode = {}
-        self.lbl_control_mode["left_arm"] = QLabel("undefined")
-        self.lbl_control_mode["right_arm"] = QLabel("undefined")
 
         # disable some buttons by default
         self.btn_command_mode.setEnabled(False)
@@ -164,12 +170,10 @@ class RqtLwrDashboard(Dashboard):
         vlayout_move.addWidget(self.btn_home)
         vlayout_move.addWidget(self.btn_park)
 
-        hlayout_control_mode["left_arm"].addWidget(QLabel("left_arm:"))
-        hlayout_control_mode["left_arm"].addWidget(self.lbl_control_mode["left_arm"])
-        hlayout_control_mode["left_arm"].addWidget(self.btn_ctrl_change_left)
-        hlayout_control_mode["right_arm"].addWidget(QLabel("right_arm:"))
-        hlayout_control_mode["right_arm"].addWidget(self.lbl_control_mode["right_arm"])
-        hlayout_control_mode["right_arm"].addWidget(self.btn_ctrl_change_right)
+        for group in self.btn_ctrl:
+            hlayout_control_mode[group].addWidget(QLabel(group+":"))
+            for key in self.btn_ctrl[group]:
+                hlayout_control_mode[group].addWidget(self.btn_ctrl[group][key])
 
         vlayout_control_mode.addWidget(QLabel("Control mode"))
         vlayout_control_mode.addLayout(hlayout_control_mode["left_arm"])
@@ -193,8 +197,9 @@ class RqtLwrDashboard(Dashboard):
         self.btn_home.clicked.connect(functools.partial(self.on_btn_home_clicked, group_name=None))
         self.btn_park.clicked.connect(functools.partial(self.on_btn_park_clicked, group_name=None))
 
-        self.btn_ctrl_change_left.clicked.connect(functools.partial(self.on_btn_ctrl_change_clicked, group_name="left_arm"))
-        self.btn_ctrl_change_right.clicked.connect(functools.partial(self.on_btn_ctrl_change_clicked, group_name="right_arm"))
+        for group in self.btn_ctrl:
+            for key in self.btn_ctrl[group]:
+                self.btn_ctrl[group][key].clicked.connect(functools.partial(self.on_btn_ctrl_change_clicked, group_name=group, mode=key))
 
         self.chk_all.stateChanged.connect(self.on_enable_all_clicked)
 
@@ -296,13 +301,26 @@ class RqtLwrDashboard(Dashboard):
                 if self._state_buttons[group_name].enable_menu.isChecked():
                     self._lwrdb[group_name].disable_motors()
 
-    def on_btn_ctrl_change_clicked(self, group_name=None):
+    def on_btn_ctrl_change_clicked(self, group_name=None, mode=None):
         """
         request a control mode change
         :param group_name: group concerned, default is None meaning act on all enabled groups
+        :param mode: mode to change the control to, default is None meaning no change
 
         """
-        print "not yet implemented"
+        if group_name is not None:
+            if self._state_buttons[group_name].enable_menu.isChecked():
+                if mode is not None:
+                    if mode == "Position":
+                        self._lwrdb[group_name].switch_joint_control()
+                    if mode == "Cartesian impedance":
+                        self._lwrdb[group_name].switch_cartesian_impedance_control()
+                    if mode == "Joint impedance":
+                        self._lwrdb[group_name].switch_joint_impedance_control()
+                else:
+                    print "btn control change requires a valid mode. (", mode, ") given"
+        else:
+            print "btn control change requires a valid group name. (", group_name, ") given"
 
     def on_btn_reset_fri_clicked(self, group_name=None):
         """
@@ -441,7 +459,7 @@ class RqtLwrDashboard(Dashboard):
 
             self.change_button_state(group_name, power_state, control_state, control_strategy, error)
 
-    def change_button_state(self, group_name, power_state=None, control_state=None, control_strategy="undefined", error=False):
+    def change_button_state(self, group_name, power_state=None, control_state=None, control_strategy=None, error=False):
         # update buttons on state change
 
         if error:
@@ -461,10 +479,13 @@ class RqtLwrDashboard(Dashboard):
                 self._last_power_state[group_name] = None
                 self._last_control_state[group_name] = None
 
-            if control_strategy is not None:
-                self.lbl_control_mode[group_name].setText(control_strategy)
-            else:
-                self.lbl_control_mode[group_name].setText("undefined")
+            if self._last_control_strategy[group_name] != control_strategy and control_strategy is not None:
+                for key in self.btn_ctrl[group_name]:
+                    if key == control_strategy:
+                        self.btn_ctrl[group_name][key].setStyleSheet("background-color: rgb(42, 153, 43)")  # green
+                    else:
+                        self.btn_ctrl[group_name][key].setStyleSheet("background-color: rgb(197, 197, 197)")  # grey
+                self._last_control_strategy[group_name] = control_strategy
 
         if self._last_power_state[group_name] != power_state and power_state is not None and error is False:
             if power_state == "1111111":
