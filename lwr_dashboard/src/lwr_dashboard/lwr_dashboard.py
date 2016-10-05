@@ -84,9 +84,17 @@ class LwrDashboard(object):
         if self._namespace is not None:
             try:
                 self._lwr_drive_on = rospy.ServiceProxy(self._namespace + "/drive_on", Empty)
+                self._lwr_drive_on.wait_for_service(timeout=1.0)
+            except rospy.ROSException, e:
+                # print "Service  failed: %s"%e
+                self._lwr_drive_on = None
+            try:
                 self._lwr_drive_off = rospy.ServiceProxy(self._namespace + "/drive_off", Empty)
-            except rospy.ServiceException, e:
-                print "Service call failed: %s"%e
+                self._lwr_drive_off.wait_for_service(timeout=1.0)
+            except rospy.ROSException, e:
+                # print "Service  failed: %s"%e
+                self._lwr_drive_off = None
+
         else:
             rospy.logerr("A namespace must be specified for panel operations")
         return True
@@ -159,7 +167,7 @@ class LwrDashboard(object):
                 self._last_krl_cmd = msg
                 return True
             else:
-                rospy.logwarn("Did not receive any fromKRL data yet, cannot send a command")
+                rospy.logwarn("Did not receive any data fromKRL yet, cannot send a command")
                 return False
 
     def command_mode_request(self):

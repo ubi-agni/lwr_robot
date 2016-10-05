@@ -482,7 +482,7 @@ class RqtLwrDashboard(Dashboard):
             if self._last_control_strategy[group_name] != control_strategy and control_strategy is not None:
                 for key in self.btn_ctrl[group_name]:
                     if key == control_strategy:
-                        self.btn_ctrl[group_name][key].setStyleSheet("background-color: rgb(42, 153, 43)")  # green
+                        self.btn_ctrl[group_name][key].setStyleSheet("background-color: rgb(90, 148, 95)")  # green
                     else:
                         self.btn_ctrl[group_name][key].setStyleSheet("background-color: rgb(197, 197, 197)")  # grey
                 self._last_control_strategy[group_name] = control_strategy
