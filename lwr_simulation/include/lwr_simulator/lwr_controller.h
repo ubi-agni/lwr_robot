@@ -163,6 +163,7 @@ namespace gazebo
         
         Eigen::Matrix<double, 6, 1> cart_pos_cmd_;
         KDL::Frame T_old_;
+        KDL::Frame T_D_;
         Eigen::Matrix<double, 6, 1> ext_tcp_ft_;
         Eigen::Matrix<double, 6, 1> cart_stiffness_;
         Eigen::Matrix<double, 6, 1> user_cart_stiffness_;
