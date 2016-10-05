@@ -154,7 +154,9 @@ namespace gazebo
         Eigen::Matrix<double, 7, 1> joint_vel_;
         Eigen::Matrix<double, 7, 1> brake_pos_;
         Eigen::Matrix<double, 7, 1> stiffness_;
+        Eigen::Matrix<double, 7, 1> user_stiffness_; // user default
         Eigen::Matrix<double, 7, 1> damping_;
+        Eigen::Matrix<double, 7, 1> user_damping_; // user default
         Eigen::Matrix<double, 7, 1> trq_cmd_;
         Eigen::Matrix<double, 7, 1> trq_;
         Eigen::Matrix<double, 7, 7> mass_;
@@ -163,7 +165,9 @@ namespace gazebo
         KDL::Frame T_old_;
         Eigen::Matrix<double, 6, 1> ext_tcp_ft_;
         Eigen::Matrix<double, 6, 1> cart_stiffness_;
+        Eigen::Matrix<double, 6, 1> user_cart_stiffness_;
         Eigen::Matrix<double, 6, 1> cart_damping_;
+        Eigen::Matrix<double, 6, 1> user_cart_damping_;
         
         common::Time previous_time_, current_time_;
         
