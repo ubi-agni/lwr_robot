@@ -1,5 +1,6 @@
 #include <kdl_parser/kdl_parser.hpp>
 #include <sys/select.h>
+#include <errno.h>
 #include <lwr_simulator/lwr_controller.h>
 
 namespace gazebo
@@ -353,6 +354,8 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 
   FD_ZERO(&rd);
   FD_SET(socketFd, &rd);
+  
+  bool cart_initialized = false;
 
   // receive cmd data from socket
   int sret = select(socketFd+1, &rd, NULL, NULL, &tv);
@@ -440,6 +443,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               m_cmd_data.cmd.cartPos[10] = T.M.data[8];
               m_cmd_data.cmd.cartPos[11] = T.p.data[2];
               T_old_ = T;
+              cart_initialized = true;
               ctrl_mode_switched = true;
               break;
 
@@ -609,37 +613,50 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
             // Cart control mode
             if ( m_msr_data.robot.control == FRI_CTRL_CART_IMP ) {
 
-                joint_pos_cmd_ = joint_pos_;
+                joint_pos_cmd_ = joint_pos_; //maybe take the joint pos from previous cycle
               // commanded cart pos
 
-              KDL::Frame T_D;
-              //if (m_cmd_data.cmd.cmdFlags & FRI_CMD_CARTPOS)
+              
+              if (m_cmd_data.cmd.cmdFlags & FRI_CMD_CARTPOS | cart_initialized)
               {
-                T_D.M = KDL::Rotation(m_cmd_data.cmd.cartPos[0],
+                T_D_.M = KDL::Rotation(m_cmd_data.cmd.cartPos[0],
                     m_cmd_data.cmd.cartPos[1], m_cmd_data.cmd.cartPos[2],
                     m_cmd_data.cmd.cartPos[4], m_cmd_data.cmd.cartPos[5],
                     m_cmd_data.cmd.cartPos[6], m_cmd_data.cmd.cartPos[8],
                     m_cmd_data.cmd.cartPos[9], m_cmd_data.cmd.cartPos[10]);
-                T_D.p.x(m_cmd_data.cmd.cartPos[3]);
-                T_D.p.y(m_cmd_data.cmd.cartPos[7]);
-                T_D.p.z(m_cmd_data.cmd.cartPos[11]);
-                ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","kuka TD %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", m_cmd_data.cmd.cartPos[0],
-                    m_cmd_data.cmd.cartPos[1], m_cmd_data.cmd.cartPos[2],
-                    m_cmd_data.cmd.cartPos[4], m_cmd_data.cmd.cartPos[5],
-                    m_cmd_data.cmd.cartPos[6], m_cmd_data.cmd.cartPos[8],
-                    m_cmd_data.cmd.cartPos[9], m_cmd_data.cmd.cartPos[10],
-                    m_cmd_data.cmd.cartPos[3],m_cmd_data.cmd.cartPos[7] ,m_cmd_data.cmd.cartPos[11] );
-
+                T_D_.p.x(m_cmd_data.cmd.cartPos[3]);
+                T_D_.p.y(m_cmd_data.cmd.cartPos[7]);
+                T_D_.p.z(m_cmd_data.cmd.cartPos[11]);
+                ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","kuka TD %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", T_D_.M.data[0],
+                                      T_D_.M.data[1], T_D_.M.data[2],
+                                      T_D_.M.data[3], T_D_.M.data[4],
+                                      T_D_.M.data[5], T_D_.M.data[6],
+                                      T_D_.M.data[7], T_D_.M.data[8],
+                                      T_D_.p.x(), T_D_.p.y() , T_D_.p.z());
               }
+              
+
               // validate the desired pose
-              if (!isValidRotation(T_D.M))
+              if (!isValidRotation(T_D_.M))
               {
                   ROS_DEBUG_THROTTLE_NAMED(0.1,"cart"," INVALID Desired Pose");
-                  T_D.M = KDL::Rotation::Identity();
+                  T_D_.M = KDL::Rotation::Identity();
               }
 
               // twist
-              KDL::Twist cart_twist = KDL::diff(T_old_, T, m_msr_data.intf.desiredMsrSampleTime);
+              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","kuka T %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", T.M.data[0],
+                                      T.M.data[1], T.M.data[2],
+                                      T.M.data[3], T.M.data[4],
+                                      T.M.data[5], T.M.data[6],
+                                      T.M.data[7], T.M.data[8],
+                                      T.p.x(), T.p.y() , T.p.z());
+              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","kuka T_old %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", T_old_.M.data[0],
+                                      T_old_.M.data[1], T_old_.M.data[2],
+                                      T_old_.M.data[3], T_old_.M.data[4],
+                                      T_old_.M.data[5], T_old_.M.data[6],
+                                      T_old_.M.data[7], T_old_.M.data[8],
+                                      T_old_.p.x(), T_old_.p.y() , T_old_.p.z());
+              KDL::Twist cart_twist;// = KDL::diff(T_old_, T, m_msr_data.intf.desiredMsrSampleTime);
               cart_twist = T.M.Inverse() * cart_twist;
               T_old_ = T;
 
@@ -710,9 +727,16 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               Dc = Q.transpose() * cart_damping_.asDiagonal() * K0.cwiseSqrt().asDiagonal() * Q;
 
               // compute length of spring
-              T_S = T_C.Inverse() * T_D;
+              T_S = T_C.Inverse() * T_D_;
 
               T_S.M.GetQuaternion(e(0), e(1), e(2), e(3));
+              
+              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","kuka T_S %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", T_S.M.data[0],
+                                      T_S.M.data[1], T_S.M.data[2],
+                                      T_S.M.data[3], T_S.M.data[4],
+                                      T_S.M.data[5], T_S.M.data[6],
+                                      T_S.M.data[7], T_S.M.data[8],
+                                      T_S.p.x(), T_S.p.y() , T_S.p.z());
 
               // calculate spring force
               F(0) = cart_stiffness_(0) * T_S.p[0];
@@ -754,11 +778,11 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 
 
               // compute the torque
-              trq_ = trq_cmd_; //stiffness_.asDiagonal() * (joint_pos_cmd_ - joint_pos_) - damping_.asDiagonal() * joint_vel_ + trq_cmd_;
+              trq_ = stiffness_.asDiagonal() * (joint_pos_cmd_ - joint_pos_) - damping_.asDiagonal() * joint_vel_ + trq_cmd_;
 
 
               for(unsigned int i = 0; i< LBR_MNJ; i++) {
-                joints_[i]->SetForce(0, trq_(i));// + grav(i));
+                joints_[i]->SetForce(0, trq_(i) + grav(i));
               }
               ROS_DEBUG_THROTTLE_NAMED(5.0, "krl", "cartesian control");
               brakes_on_ = false;
