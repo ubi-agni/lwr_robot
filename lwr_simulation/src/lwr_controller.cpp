@@ -397,6 +397,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               break;
 
             case OKC_SWITCH_CP_CONTROL:
+              ROS_DEBUG_NAMED("krl","switched to OKC_SWITCH_CP_CONTROL");
               m_msr_data.robot.control = FRI_CTRL_CART_IMP;
               m_msr_data.krl.intData[OKC_ACK_IDX] = 6;
               m_msr_data.krl.intData[OKC_CMD_IDX] = 104;
@@ -422,6 +423,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               break;
 
             case OKC_SWITCH_AXIS_CONTROL:
+              ROS_DEBUG_NAMED("krl","switched to OKC_SWITCH_AXIS_CONTROL");
               m_msr_data.robot.control = FRI_CTRL_JNT_IMP;
               m_msr_data.krl.intData[OKC_ACK_IDX] = 7;
               m_msr_data.krl.intData[OKC_CMD_IDX] = 105;
@@ -429,6 +431,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               break;
 
             case OKC_SWITCH_POSITION:
+              ROS_DEBUG_NAMED("krl","switched to OKC_SWITCH_POSITION");
               m_msr_data.robot.control = FRI_CTRL_POSITION;
               m_msr_data.krl.intData[OKC_ACK_IDX] = 9;
               m_msr_data.krl.intData[OKC_CMD_IDX] = 107;
@@ -436,6 +439,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               break;
 
             case OROCOS_OKC_SWITCH_CONTROL_MODE:
+              ROS_DEBUG_NAMED("krl","switched to OROCOS_OKC_SWITCH_CONTROL_MODE");
               switch(m_cmd_data.krl.intData[1])
               {
                 case 10:
