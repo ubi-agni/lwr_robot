@@ -132,8 +132,11 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
 
     // stiffness_(i) = 200.0;
     // damping_(i) = 5.0;
+    
     stiffness_(i) = LWRSIM_DEFAULT_STIFFNESS;
+    user_stiffness_(i) = LWRSIM_DEFAULT_STIFFNESS;
     damping_(i) = LWRSIM_DEFAULT_DAMPING;
+    user_damping_(i) = LWRSIM_DEFAULT_DAMPING;
     trq_cmd_(i) = LWRSIM_DEFAULT_TRQ_CMD;
     joint_pos_cmd_(i) = joints_[i]->GetAngle(0).Radian();
 
@@ -151,10 +154,17 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     cart_pos_cmd_(i) = 0.0;
     ext_tcp_ft_(i) = 0.0;
     cart_damping_(i) = LWRSIM_DEFAULT_CARTDAMPING;
-    if( i < 3)
+    user_cart_damping_(i) = LWRSIM_DEFAULT_CARTDAMPING;
+    if ( i < 3)
+    {
       cart_stiffness_(i) = LWRSIM_DEFAULT_CARTSTIFFNESSFORCE;
+      user_cart_stiffness_(i) = LWRSIM_DEFAULT_CARTSTIFFNESSFORCE;
+    }
     else
+    {
       cart_stiffness_(i) = LWRSIM_DEFAULT_CARTSTIFFNESSTORQUE;
+      user_cart_stiffness_(i) = LWRSIM_DEFAULT_CARTSTIFFNESSTORQUE;
+    }
   }
 
   gzdbg << "Initialized joints" << "\n";
@@ -217,7 +227,7 @@ void LWRController::GetRobotChain()
   KDL::Segment *segment_ee_ptr = &(chain_.segments[chain_.getNrOfSegments()-1]);
   // get its dynamic parameters
   KDL::RigidBodyInertia inertia_ee = segment_ee_ptr->getInertia();
-  std::string name_ee = segment_ee_ptr->getName();
+  // std::string name_ee = segment_ee_ptr->getName();
   double m_ee = inertia_ee.getMass();
   KDL::Vector cog_ee = inertia_ee.getCOG();
   KDL::RotationalInertia rot_inertia_ee = inertia_ee.getRotationalInertia();
@@ -483,6 +493,32 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               //m_msr_data.krl.intData[OKC_CMD_IDX] = 107;
               ctrl_mode_switched = true;
               break;
+              
+            case OKC_SET_AXIS_STIFFNESS_DAMPING:
+              m_msr_data.krl.intData[OKC_ACK_IDX] = OKC_SET_AXIS_STIFFNESS_DAMPING;
+              m_msr_data.krl.intData[OKC_SEQ_IDX]++;
+              m_msr_data.krl.intData[OKC_CMD_IDX] = 103;
+              
+              for (unsigned int i = 0; i < LBR_MNJ; i++)
+              {
+                user_stiffness_(i) = m_cmd_data.krl.intData[8+i];
+                user_damping_(i) = m_cmd_data.krl.realData[9+i];
+              }
+              ctrl_mode_switched = true;
+              break;
+              
+            case OKC_SET_CP_STIFFNESS_DAMPING:
+              m_msr_data.krl.intData[OKC_ACK_IDX] = OKC_SET_CP_STIFFNESS_DAMPING;
+              m_msr_data.krl.intData[OKC_SEQ_IDX]++;
+              m_msr_data.krl.intData[OKC_CMD_IDX] = 102;
+              
+              for (unsigned int i = 0; i < LBR_MNJ; i++)
+              {
+                user_stiffness_(i) = m_cmd_data.krl.intData[9+i];
+                user_damping_(i) = m_cmd_data.krl.realData[10+i];
+              }
+              ctrl_mode_switched = true;
+              break;
 
             default:
               ctrl_mode_switched = true;
@@ -520,9 +556,35 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 
                 // Joint Impedance mode
                 if( m_msr_data.robot.control == FRI_CTRL_JNT_IMP ) {
-                  stiffness_(i) = m_cmd_data.cmd.jntStiffness[i];
-                  damping_(i) = m_cmd_data.cmd.jntDamping[i];
-                  trq_cmd_(i) = m_cmd_data.cmd.addJntTrq[i];
+                  // if stiffness given
+                  if (m_cmd_data.cmd.cmdFlags & FRI_CMD_JNTSTIFF)
+                  {
+                    stiffness_(i) = m_cmd_data.cmd.jntStiffness[i];
+                  }
+                  else // use user stiffness instead
+                  {
+                    stiffness_(i) = user_stiffness_(i);
+                  }
+
+                  // if damping given
+                  if (m_cmd_data.cmd.cmdFlags & FRI_CMD_JNTDAMP)
+                  {
+                    damping_(i) = m_cmd_data.cmd.jntDamping[i];
+                  }
+                  else // use user damping instead
+                  {
+                    damping_(i) = user_damping_(i);
+                  }
+                  
+                  // if trq given
+                  if (m_cmd_data.cmd.cmdFlags & FRI_CMD_JNTTRQ)
+                  {
+                    trq_cmd_(i) = m_cmd_data.cmd.addJntTrq[i];
+                  }
+                  else
+                  {
+                    trq_cmd_(i) = LWRSIM_DEFAULT_TRQ_CMD;
+                  }
                 }
                 ROS_DEBUG_THROTTLE(0.1, "kuka j%d stiffness %f damping %f",i, stiffness_(i), damping_(i));
               }
@@ -594,6 +656,11 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
                 {
                   cart_stiffness_(i) = m_cmd_data.cmd.cartStiffness[i];
                   cart_damping_(i) = m_cmd_data.cmd.cartDamping[i];
+                }
+                else
+                {
+                  cart_stiffness_(i) = user_cart_stiffness_(i);
+                  cart_damping_(i) = user_cart_damping_(i);
                 }
               }
               ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","kuka cart_stiffness_  %f, %f, %f, %f, %f, %f", cart_stiffness_(0),
@@ -783,3 +850,4 @@ bool LWRController::isValidRotation(KDL::Rotation &rot)
 GZ_REGISTER_MODEL_PLUGIN(LWRController);
 
 }
+
