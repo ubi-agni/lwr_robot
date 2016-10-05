@@ -251,7 +251,7 @@ void LWRController::GetRobotChain()
 void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 {
   struct sockaddr cliAddr;
-  unsigned int cliAddr_len;
+  unsigned int cliAddr_len = sizeof(cliAddr);
   KDL::Frame T;
   KDL::Jacobian jac(LBR_MNJ);
   KDL::JntSpaceInertiaMatrix H(LBR_MNJ);
@@ -363,7 +363,10 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
     int n = recvfrom(socketFd, (void*) &m_cmd_data, sizeof(m_cmd_data), 0,
 			(sockaddr*) &cliAddr, &cliAddr_len);
     if (sizeof(tFriCmdData) != n) {
-      ROS_DEBUG_THROTTLE(0.5, "bad packet length : %d should be %zu", n, sizeof(tFriCmdData));
+      if (n == -1)
+        ROS_DEBUG_THROTTLE(0.5, "recv err : %s", strerror(errno));
+      else
+        ROS_DEBUG_THROTTLE(0.5, "bad packet length : %d should be %zu", n, sizeof(tFriCmdData));
       Brake(joint_pos_, grav);
     }
     else
