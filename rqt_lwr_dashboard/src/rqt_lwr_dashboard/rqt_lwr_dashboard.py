@@ -441,9 +441,17 @@ class RqtLwrDashboard(Dashboard):
         control_strategy = None
         control_state = None
         error = False
+        quality = None
         if group_name in self._state_buttons:
             # reset timer
             self.watchdog_timeout[group_name] = False
+            if len(msg.status) > 0:
+                if msg.status[0].name == "lwr FRI state":
+                    for prop in msg.status[0].values:
+                        if "State" in prop.key:
+                            control_state = prop.value
+                        if "Quality" in prop.key:
+                            quality = prop.value
             if len(msg.status) > 1:
                 if msg.status[1].name == "lwr robot state":
                     for prop in msg.status[1].values:
@@ -453,14 +461,10 @@ class RqtLwrDashboard(Dashboard):
                             control_strategy = prop.value
                     if msg.status[1].level == DiagnosticStatus.ERROR:
                         error = True
-                if msg.status[0].name == "lwr FRI state":
-                    for prop in msg.status[0].values:
-                        if "State" in prop.key:
-                            control_state = prop.value
 
-            self.change_button_state(group_name, power_state, control_state, control_strategy, error)
+            self.change_button_state(group_name, power_state, control_state, control_strategy, quality, error)
 
-    def change_button_state(self, group_name, power_state=None, control_state=None, control_strategy=None, error=False):
+    def change_button_state(self, group_name, power_state=None, control_state=None, control_strategy=None, quality=None, error=False):
         # update buttons on state change
 
         if error:
@@ -487,6 +491,9 @@ class RqtLwrDashboard(Dashboard):
                     else:
                         self.btn_ctrl[group_name][key].setStyleSheet("background-color: rgb(197, 197, 197)")  # grey
                 self._last_control_strategy[group_name] = control_strategy
+
+            if self.lbl_fricom[group_name].text() != quality and quality is not None:
+                self.lbl_fricom[group_name].setText(quality)
 
         if self._last_power_state[group_name] != power_state and power_state is not None and error is False:
             if power_state == "1111111":
