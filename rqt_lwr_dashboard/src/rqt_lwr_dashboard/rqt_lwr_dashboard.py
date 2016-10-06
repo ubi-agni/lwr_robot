@@ -29,9 +29,9 @@ import rospy
 import functools
 from rqt_robot_dashboard.dashboard import Dashboard
 
-from python_qt_binding.QtCore import QSize
+from python_qt_binding.QtCore import QSize, QTimer, Qt
 from QtGui import QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QLabel, \
-    QTimer, QCheckBox, QMessageBox
+    QCheckBox, QMessageBox
 
 from lwr_dashboard.lwr_dashboard import LwrDashboard
 
