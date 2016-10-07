@@ -29,16 +29,128 @@ import rospy
 import functools
 from rqt_robot_dashboard.dashboard import Dashboard
 
-from python_qt_binding.QtCore import QSize
-from python_qt_binding.QtCore import Qt, QTimer
-from QtWidgets import QPushButton, QWidget, QLabel, \
-    QCheckBox, QMessageBox, QVBoxLayout, QHBoxLayout
+from python_qt_binding.QtGui import QFont
+from python_qt_binding.QtCore import QSize, QRect, Qt, QTimer, \
+    QObject, QMetaObject, pyqtSignal
+from QtWidgets import QPushButton, QWidget, QLabel, QSlider, \
+    QCheckBox, QMessageBox, QLayout, QVBoxLayout, QHBoxLayout, QDialog, QDialogButtonBox
 
 from lwr_dashboard.lwr_dashboard import LwrDashboard
 
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus
 
 from .state_button import ControlStateButton
+
+
+class StiffnessDamping_Dialog(object):
+    def setupUi(self, Dialog, mode="Joint impedance"):
+        Dialog.setObjectName("Dialog")
+
+        if mode is not None:
+            impendances = ["stiffness", "damping"]
+            if mode == "Joint impedance":
+                slider_names = ["A1", "A2", "A3", "A4", "A5", "A6", "E1"]
+                impedance_max = {}
+                impedance_max["stiffness"] = [2000]*7
+                impedance_max["damping"] = [10.0]*7
+            else:
+                if mode == "Cartesian impedance":
+                    slider_names = ["X", "Y", "Z", "A", "B", "C"]
+                    impedance_max = {}
+                    impedance_max["stiffness"] = [500] * 6
+                    impedance_max["damping"] = [10.0] * 6  # use max*10 and divide later to get float
+                else:
+                    print mode
+                    slider_names = []
+
+            self.val = {}
+            self.sl = {}
+
+            self.vlayout = QVBoxLayout(Dialog)
+            self.hlayout = QHBoxLayout()
+            self.vlayout_lbl = QVBoxLayout()
+            self.vlayout_val = {}
+            self.vlayout_sl = {}
+
+            self.hlayout.addLayout(self.vlayout_lbl)
+
+            self.vlayout_lbl.addWidget(QLabel("  "))
+
+            for k, impedance in enumerate(impendances):
+                self.val[impedance] = {}
+                self.sl[impedance] = {}
+                self.vlayout_sl[impedance] = QVBoxLayout()
+                self.vlayout_val[impedance] = QVBoxLayout()
+
+                self.vlayout_sl[impedance].addWidget(QLabel(impedance))
+                self.vlayout_val[impedance].addWidget(QLabel("  "))
+
+                for i, slider_name in enumerate(slider_names):
+                    if k == 0:
+                        self.vlayout_lbl.addWidget(QLabel(slider_name + ":"))
+
+                    self.val[impedance][slider_name] = QLabel()
+                    self.val[impedance][slider_name].setText("0")
+                    self.val[impedance][slider_name].setMinimumWidth(4*10)
+                    self.sl[impedance][slider_name] = QSlider()
+                    self.sl[impedance][slider_name].setOrientation(Qt.Horizontal)
+                    self.sl[impedance][slider_name].setObjectName(slider_name)
+                    if impedance == "damping":
+                        self.sl[impedance][slider_name].setTickInterval(1)
+                    else:
+                        self.sl[impedance][slider_name].setTickInterval(50)
+                    self.sl[impedance][slider_name].setMaximum(impedance_max[impedance][i])
+                    self.sl[impedance][slider_name].setMinimum(0)
+
+                    self.sl[impedance][slider_name].valueChanged.connect(functools.partial(self.valueChange, slider_name=slider_name, impedance=impedance))
+
+                    self.vlayout_sl[impedance].addWidget(self.sl[impedance][slider_name])
+                    self.vlayout_val[impedance].addWidget(self.val[impedance][slider_name])
+
+                self.hlayout.addStretch()
+                self.hlayout.addLayout(self.vlayout_sl[impedance])
+                self.hlayout.addLayout(self.vlayout_val[impedance])
+
+            self.buttonBox = QDialogButtonBox()
+            self.buttonBox.setOrientation(Qt.Horizontal)
+            self.buttonBox.setStandardButtons(QDialogButtonBox.Cancel | QDialogButtonBox.Ok)
+            self.buttonBox.setObjectName("buttonBox")
+            self.buttonBox.accepted.connect(Dialog.accept)
+            self.buttonBox.rejected.connect(Dialog.reject)
+
+            self.vlayout.addLayout(self.hlayout)
+            self.vlayout.addWidget(self.buttonBox)
+
+            QMetaObject.connectSlotsByName(Dialog)
+
+    def valueChange(self, slider_name, impedance):
+        if impedance in self.val:
+            if slider_name in self.val[impedance]:
+                if impedance == "damping":
+                    self.val[impedance][slider_name].setText(str((self.sl[impedance][slider_name].value()/10.0)))
+                else:
+                    self.val[impedance][slider_name].setNum(self.sl[impedance][slider_name].value())
+
+    def getValues(self):
+        result = dict()
+        for impedance in self.sl:
+            result[impedance] = []
+            for i, slider_name in enumerate(self.sl[impedance]):
+                if impedance == "damping":
+                    result[impedance].append(self.sl[impedance][slider_name].value()/10.0)
+                else:
+                    result[impedance].append(self.sl[impedance][slider_name].value())
+        return result
+
+    # def retranslateUi(self, Dialog):
+    #    Dialog.setWindowTitle(QtGui.QApplication.translate("Dialog", "Dialog", None, QtGui.QApplication.UnicodeUTF8))
+    #    self.label.setText(QtGui.QApplication.translate("Dialog", "Set example value:", None, QtGui.QApplication.UnicodeUTF8))
+
+
+class StartDlg(QDialog, StiffnessDamping_Dialog):
+    def __init__(self, mode, parent=None):
+        QDialog.__init__(self, parent)
+        self.setupUi(self, mode=mode)
 
 
 class RqtLwrDashboard(Dashboard):
@@ -208,6 +320,9 @@ class RqtLwrDashboard(Dashboard):
             for key in self.btn_ctrl[group]:
                 self.btn_ctrl[group][key].clicked.connect(functools.partial(self.on_btn_ctrl_change_clicked, group_name=group, mode=key))
 
+        for group in self.btn_stiffdamp:
+            for key in self.btn_stiffdamp[group]:
+                self.btn_stiffdamp[group][key].clicked.connect(functools.partial(self.on_btn_stiffdamp_change_clicked, group_name=group, mode=key))
         self.chk_all.stateChanged.connect(self.on_enable_all_clicked)
 
         self._main_widget.setLayout(vlayout_main)
@@ -328,6 +443,24 @@ class RqtLwrDashboard(Dashboard):
                     print "btn control change requires a valid mode. (", mode, ") given"
         else:
             print "btn control change requires a valid group name. (", group_name, ") given"
+
+    def on_btn_stiffdamp_change_clicked(self, group_name=None, mode=None):
+        """
+        request a user stiffness or damping change
+        :param group_name: group concerned, default is None meaning act on all enabled groups
+        :param mode: mode to change the control to, default is None meaning no change
+        """
+        if group_name is not None:
+            if self._state_buttons[group_name].enable_menu.isChecked():
+                if mode is not None:
+                    # show a dialog with sliders
+                    self.ui = StartDlg(mode)
+                    if self.ui.exec_():
+                        print self.ui.getValues()
+                else:
+                    print "btn stiffness change requires a valid mode. (", mode, ") given"
+        else:
+            print "btn stiffness change requires a valid group name. (", group_name, ") given"
 
     def on_btn_reset_fri_clicked(self, group_name=None):
         """
