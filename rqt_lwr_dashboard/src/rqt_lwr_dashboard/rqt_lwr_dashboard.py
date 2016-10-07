@@ -76,30 +76,26 @@ class RqtLwrDashboard(Dashboard):
         self._lwrdb["right_arm"] = LwrDashboard(namespace="ra")
         self._lwrdb["left_arm"] = LwrDashboard(namespace="la")
 
-        # create as many buttons as groups received
-        for i, group_name in enumerate(group_names):
-            self._state_buttons[group_name] = ControlStateButton(group_name, self)
-
         self._main_widget = QWidget()
         vlayout_main = QVBoxLayout()
+        hlayout_main = QHBoxLayout()
         # enable
         hlayout_enable = QHBoxLayout()
-        # power+fri
-        hlayout_power_fri = QHBoxLayout()
+        # labels
+        vlayout_labels = QVBoxLayout()
+        # both arms
+        vlayout_both = QVBoxLayout()
         # power
         vlayout_power = QVBoxLayout()
         # fri
-        hlayout_fricom_header = QHBoxLayout()
-        hlayout_fricom_quality = QHBoxLayout()
         vlayout_fri = QVBoxLayout()
         # move
         vlayout_move = QVBoxLayout()
 
-        # control
-        vlayout_control_mode = QVBoxLayout()
-        hlayout_control_mode = {}
-        hlayout_control_mode["left_arm"] = QHBoxLayout()
-        hlayout_control_mode["right_arm"] = QHBoxLayout()
+        # single arms
+        vlayout_arm = {}
+        vlayout_arm["left_arm"] = QVBoxLayout()
+        vlayout_arm["right_arm"] = QVBoxLayout()
 
         self.chk_all = QCheckBox("enable_all")
         self.chk_all.setChecked(True)
@@ -118,18 +114,19 @@ class RqtLwrDashboard(Dashboard):
         self.btn_home = QPushButton("home")
         self.btn_park = QPushButton("park")
         self.btn_ctrl = {}
-        self.btn_ctrl["left_arm"] = {}
-        self.btn_ctrl["left_arm"]["Position"] = QPushButton("Jnt")
-        self.btn_ctrl["left_arm"]["Cartesian impedance"] = QPushButton("CartImp")
-        self.btn_ctrl["left_arm"]["Joint impedance"] = QPushButton("JntImp")
-        self.btn_ctrl["right_arm"] = {}
-        self.btn_ctrl["right_arm"]["Position"] = QPushButton("Jnt")
-        self.btn_ctrl["right_arm"]["Cartesian impedance"] = QPushButton("CartImp")
-        self.btn_ctrl["right_arm"]["Joint impedance"] = QPushButton("JntImp")
-
-        self.lbl_fricom = {}
-        self.lbl_fricom["left_arm"] = QLabel("BAD")
-        self.lbl_fricom["right_arm"] = QLabel("BAD")
+        self.btn_stiffdamp = {}
+        self.lbl_friquality = {}
+        # create as many buttons as groups received
+        for i, group_name in enumerate(group_names):
+            self._state_buttons[group_name] = ControlStateButton(group_name, self)
+            self.btn_ctrl[group_name] = {}
+            self.btn_ctrl[group_name]["Position"] = QPushButton("Jnt")
+            self.btn_ctrl[group_name]["Cartesian impedance"] = QPushButton("CartImp")
+            self.btn_ctrl[group_name]["Joint impedance"] = QPushButton("JntImp")
+            self.btn_stiffdamp[group_name] = {}
+            self.btn_stiffdamp[group_name]["Joint impedance"] = QPushButton("JntImp")
+            self.btn_stiffdamp[group_name]["Cartesian impedance"] = QPushButton("CartImp")
+            self.lbl_friquality[group_name] = QLabel("BAD")
 
         # disable some buttons by default
         self.btn_command_mode.setEnabled(False)
@@ -146,6 +143,18 @@ class RqtLwrDashboard(Dashboard):
 
         # place buttons
         hlayout_enable.addWidget(self.chk_all)
+        hlayout_enable.setContentsMargins(1, 1, 1, 1)
+        vlayout_labels.addWidget(QLabel("Arm:"))
+        vlayout_labels.addStretch()
+        vlayout_labels.addWidget(QLabel("Control"))
+        vlayout_labels.addWidget(QLabel("mode"))
+        vlayout_labels.addWidget(QLabel("settings"))
+        vlayout_labels.addStretch()
+        vlayout_labels.addWidget(QLabel("stiffness"))
+        vlayout_labels.addWidget(QLabel("and damping"))
+        vlayout_labels.addStretch()
+        vlayout_labels.addWidget(QLabel("Fri comm"))
+        vlayout_labels.addStretch()
 
         vlayout_power.setAlignment(Qt.AlignCenter)
         vlayout_power.addWidget(QLabel("Power state"))
@@ -153,40 +162,37 @@ class RqtLwrDashboard(Dashboard):
         vlayout_power.addWidget(self.btn_monitor_mode)
         vlayout_power.addWidget(self.btn_drive_on)
         vlayout_power.addWidget(self.btn_drive_off)
-
-        hlayout_fricom_header.setAlignment(Qt.AlignCenter)
-        hlayout_fricom_header.addWidget(QLabel("left"))
-        hlayout_fricom_header.addWidget(QLabel("right"))
-        hlayout_fricom_quality.setAlignment(Qt.AlignCenter)
-        hlayout_fricom_quality.addWidget(self.lbl_fricom["left_arm"])
-        hlayout_fricom_quality.addWidget(self.lbl_fricom["right_arm"])
-
-        vlayout_fri.addWidget(QLabel("FRI"))
-        vlayout_fri.addLayout(hlayout_fricom_header)
-        vlayout_fri.addLayout(hlayout_fricom_quality)
         vlayout_fri.addWidget(self.btn_reset_fri)
         vlayout_fri.addWidget(self.btn_end_krl)
-
         vlayout_move.addWidget(QLabel("Move"))
         vlayout_move.addWidget(self.btn_home)
         vlayout_move.addWidget(self.btn_park)
 
+        # hlayout_fricom_header.setAlignment(Qt.AlignCenter)
+        vlayout_both.addLayout(vlayout_power)
+        vlayout_both.addStretch()
+        vlayout_both.addLayout(vlayout_fri)
+        vlayout_both.addLayout(vlayout_move)
+
         for group in self.btn_ctrl:
-            hlayout_control_mode[group].addWidget(QLabel(group+":"))
+            vlayout_arm[group].addWidget(QLabel(group))
+            vlayout_arm[group].addStretch()
             for key in self.btn_ctrl[group]:
-                hlayout_control_mode[group].addWidget(self.btn_ctrl[group][key])
+                vlayout_arm[group].addWidget(self.btn_ctrl[group][key])
+            vlayout_arm[group].addStretch()
+            for key in self.btn_stiffdamp[group]:
+                vlayout_arm[group].addWidget(self.btn_stiffdamp[group][key])
+            vlayout_arm[group].addStretch()
+            vlayout_arm[group].addWidget(self.lbl_friquality[group])
+            vlayout_arm[group].addStretch()
 
-        vlayout_control_mode.addWidget(QLabel("Control mode"))
-        vlayout_control_mode.addLayout(hlayout_control_mode["left_arm"])
-        vlayout_control_mode.addLayout(hlayout_control_mode["right_arm"])
-
-        hlayout_power_fri.addLayout(vlayout_power)
-        hlayout_power_fri.addLayout(vlayout_fri)
+        hlayout_main.addLayout(vlayout_labels)
+        hlayout_main.addLayout(vlayout_arm["left_arm"])
+        hlayout_main.addLayout(vlayout_arm["right_arm"])
+        hlayout_main.addLayout(vlayout_both)
 
         vlayout_main.addLayout(hlayout_enable)
-        vlayout_main.addLayout(hlayout_power_fri)
-        vlayout_main.addLayout(vlayout_control_mode)
-        vlayout_main.addLayout(vlayout_move)
+        vlayout_main.addLayout(hlayout_main)
 
         # signals for buttons
         self.btn_command_mode.clicked.connect(functools.partial(self.on_btn_command_mode_clicked, group_name=None))
@@ -492,8 +498,8 @@ class RqtLwrDashboard(Dashboard):
                         self.btn_ctrl[group_name][key].setStyleSheet("background-color: rgb(197, 197, 197)")  # grey
                 self._last_control_strategy[group_name] = control_strategy
 
-            if self.lbl_fricom[group_name].text() != quality and quality is not None:
-                self.lbl_fricom[group_name].setText(quality)
+            if self.lbl_friquality[group_name].text() != quality and quality is not None:
+                self.lbl_friquality[group_name].setText(quality)
 
         if self._last_power_state[group_name] != power_state and power_state is not None and error is False:
             if power_state == "1111111":
