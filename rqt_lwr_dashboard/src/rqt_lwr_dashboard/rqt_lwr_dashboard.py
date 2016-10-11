@@ -49,19 +49,19 @@ class StiffnessDamping_Dialog(object):
         if mode is not None:
             impendances = ["stiffness", "damping"]
             if mode == "Joint impedance":
-                slider_names = ["A1", "A2", "A3", "A4", "A5", "A6", "E1"]
+                self.slider_names = ["A1", "A2", "A3", "A4", "A5", "A6", "E1"]
                 impedance_max = {}
                 impedance_max["stiffness"] = [2000]*7
                 impedance_max["damping"] = [10.0]*7
             else:
                 if mode == "Cartesian impedance":
-                    slider_names = ["X", "Y", "Z", "A", "B", "C"]
+                    self.slider_names = ["X", "Y", "Z", "A", "B", "C"]
                     impedance_max = {}
                     impedance_max["stiffness"] = [500] * 6
                     impedance_max["damping"] = [10.0] * 6  # use max*10 and divide later to get float
                 else:
                     print mode
-                    slider_names = []
+                    self.slider_names = []
 
             self.val = {}
             self.sl = {}
@@ -85,7 +85,7 @@ class StiffnessDamping_Dialog(object):
                 self.vlayout_sl[impedance].addWidget(QLabel(impedance))
                 self.vlayout_val[impedance].addWidget(QLabel("  "))
 
-                for i, slider_name in enumerate(slider_names):
+                for i, slider_name in enumerate(self.slider_names):
                     if k == 0:
                         self.vlayout_lbl.addWidget(QLabel(slider_name + ":"))
 
@@ -135,7 +135,7 @@ class StiffnessDamping_Dialog(object):
         result = dict()
         for impedance in self.sl:
             result[impedance] = []
-            for i, slider_name in enumerate(self.sl[impedance]):
+            for i, slider_name in enumerate(self.slider_names):
                 if impedance == "damping":
                     result[impedance].append(self.sl[impedance][slider_name].value()/10.0)
                 else:
