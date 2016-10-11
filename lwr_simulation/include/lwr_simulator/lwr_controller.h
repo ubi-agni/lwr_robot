@@ -121,6 +121,7 @@ namespace gazebo
         ros::ServiceServer drive_on_srv_;
         ros::ServiceServer drive_off_srv_;
         
+        std::string model_name_;
         gazebo::physics::ModelPtr parent_model_;
         std::string robotPrefix;
         std::vector<gazebo::physics::JointPtr>  joints_;

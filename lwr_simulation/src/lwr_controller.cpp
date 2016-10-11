@@ -24,7 +24,7 @@ LWRController::~LWRController()
 void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
 {
   // Get then name of the parent model
-  std::string modelName = _sdf->GetParent()->Get<std::string>("name");
+  model_name_ = _sdf->GetParent()->Get<std::string>("name");
 
   // Get the world name.
   this->world = _parent->GetWorld();
@@ -40,7 +40,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   // simulation iteration.
   this->updateConnection = event::Events::ConnectWorldUpdateBegin(
       boost::bind(&LWRController::UpdateChild, this, _1));
-  gzdbg << "plugin model name: " << modelName << "\n";
+  gzdbg << "plugin model name: " << model_name_ << "\n";
 
   // get parameter name
   this->robotPrefix = "";
@@ -86,7 +86,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     gravityDirection_ = _sdf->GetElement("gravityDirection")->Get<math::Vector3>();
   else
   {
-    ROS_WARN("Gravity direction not given to lwrcontroller plugin, using default. \nThis will only work if you robot is standing on the floor !");
+    ROS_WARN_STREAM("Gravity direction not given to lwrcontroller plugin " << model_name_ << ", using default. \nThis will only work if you robot is standing on the floor !");
     gravityDirection_ = math::Vector3(0,0,-9.81);
   }
   gzdbg << "gravity Dir : " << gravityDirection_[0] << ", " << gravityDirection_[1] << ", " << gravityDirection_[2] << "\n";
@@ -122,7 +122,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     else
     {
       this->joints_.push_back(gazebo::physics::JointPtr());  // FIXME: cannot be null, must be an empty boost shared pointer
-      ROS_ERROR("A joint named \"%s\" is not part of Mechanism Controlled joints.\n", joint_name.c_str());
+      ROS_ERROR_STREAM("lwr_ctrl " << model_name_ << ": A joint named \"" << joint_name << "\" is not part of Mechanism Controlled joints.\n");
     }
 
     if(_sdf->HasElement(joint_name)) {
@@ -179,10 +179,10 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   localAddr.sin_port = htons(remote_port + 1);
 
   if (bind(socketFd, (sockaddr*) &localAddr, sizeof(sockaddr_in)) < 0) {
-    ROS_ERROR("Binding of port %d failed ",remote_port);
+    ROS_ERROR_STREAM("lwr_ctrl " << model_name_ << ":Binding of port " << remote_port << " failed");
   }
   else
-		ROS_INFO("Bound to port %d",remote_port);
+		ROS_INFO_STREAM("lwr_ctrl " << model_name_ << ":Bound to port " <<remote_port);
 
   bzero((char *) &remoteAddr, sizeof(remoteAddr));
 	remoteAddr.sin_family = AF_INET;
@@ -218,7 +218,7 @@ void LWRController::GetRobotChain()
   std::string robot_desc_string;
   rosnode_->param("robot_description", robot_desc_string, std::string());
   if (!kdl_parser::treeFromString(robot_desc_string, my_tree)){
-    ROS_ERROR("Failed to construct kdl tree");
+    ROS_ERROR_STREAM("lwr_ctrl " << model_name_ << ":Failed to construct kdl tree");
   }
 
   my_tree.getChain(chain_start, chain_end, chain_);
@@ -319,7 +319,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
   {
     if (m_msr_data.intf.state != FRI_STATE_MON)
     {
-      ROS_INFO("bad communication, changing to FRI_STATE_MON");
+      ROS_INFO_STREAM("lwr_ctrl " << model_name_ << ":bad communication, changing to FRI_STATE_MON");
       m_msr_data.intf.state = FRI_STATE_MON;
     }
     drive_on_ = false;
@@ -334,7 +334,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
       // don't release brakes here, only if valid data
       if (m_msr_data.intf.state == FRI_STATE_MON)
       {
-        ROS_INFO("communication ok, changing to FRI_STATE_CMD");
+        ROS_INFO_STREAM("lwr_ctrl " << model_name_ << ":communication ok, changing to FRI_STATE_CMD");
         m_msr_data.intf.state = FRI_STATE_CMD;
       }
     }
@@ -343,7 +343,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
   // send msr data to socket
   if (0 > sendto(socketFd, (void*) &m_msr_data, sizeof(m_msr_data), 0,
 			(sockaddr*) &remoteAddr, sizeof(remoteAddr))) {
-		ROS_ERROR( "Sending datagram failed.");
+		ROS_ERROR_STREAM("lwr_ctrl " << model_name_ << ":Sending datagram failed.");
 		//return -1;
 	}
 
@@ -364,9 +364,9 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 			(sockaddr*) &cliAddr, &cliAddr_len);
     if (sizeof(tFriCmdData) != n) {
       if (n == -1)
-        ROS_DEBUG_THROTTLE(0.5, "recv err : %s", strerror(errno));
+        ROS_DEBUG_STREAM_THROTTLE(0.5, "lwr_ctrl " << model_name_ << ":recv err : " << strerror(errno));
       else
-        ROS_DEBUG_THROTTLE(0.5, "bad packet length : %d should be %zu", n, sizeof(tFriCmdData));
+        ROS_DEBUG_STREAM_THROTTLE(0.5, "lwr_ctrl " << model_name_ << ":bad packet length : " << n << " should be " << sizeof(tFriCmdData));
       Brake(joint_pos_, grav);
     }
     else
@@ -376,7 +376,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
       {
         // unpack KRL CMD
         if ((m_cmd_data.krl.boolData & (1 << 0))) {
-          ROS_DEBUG_NAMED("krl","Received a KRL command");
+          ROS_DEBUG_STREAM_NAMED("krl","lwr_ctrl " << model_name_ << ":Received a KRL command");
           // copy cmd to msr
           for(unsigned int i=0 ; i < FRI_USER_SIZE ; ++i) {
             m_msr_data.krl.intData[i] = m_cmd_data.krl.intData[i];
@@ -387,13 +387,13 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
           switch(m_cmd_data.krl.intData[OKC_CMD_IDX])
           {
             case OKC_FRI_START:
-              ROS_DEBUG_NAMED("krl","Received a FRISTART cmd");
+              ROS_DEBUG_STREAM_NAMED("krl","lwr_ctrl " << model_name_ << ":Received a FRISTART cmd");
               if (drive_on_)
               {
                 if(m_msr_data.intf.state != FRI_STATE_CMD)
                 {
                   m_msr_data.intf.state = FRI_STATE_CMD;
-                  ROS_DEBUG_NAMED("krl","switched to FRISTATE_CMD");
+                  ROS_DEBUG_STREAM_NAMED("krl","lwr_ctrl " << model_name_ << ":switched to FRISTATE_CMD");
                 }
               }
               m_msr_data.krl.intData[OKC_ACK_IDX] = OKC_FRI_START;
@@ -403,7 +403,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               break;
 
             case OKC_FRI_STOP:
-              ROS_DEBUG_NAMED("krl","switched to FRISTATE_MON");
+              ROS_DEBUG_STREAM_NAMED("krl","lwr_ctrl " << model_name_ << ":switched to FRISTATE_MON");
               if(m_msr_data.intf.state != FRI_STATE_MON)
               {
                 m_msr_data.intf.state = FRI_STATE_MON;
@@ -415,7 +415,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               break;
               
             case OKC_RESET_STATUS:
-              ROS_DEBUG_NAMED("krl","reset counters");
+              ROS_DEBUG_STREAM_NAMED("krl","lwr_ctrl " << model_name_ << ":reset counters");
               m_msr_data.krl.intData[OKC_ACK_IDX] = OKC_RESET_STATUS;
               m_msr_data.krl.intData[OKC_SEQ_IDX] = 0;
               m_msr_data.krl.intData[OKC_CMD_IDX] = 111;
@@ -423,7 +423,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               break;
 
             case OKC_SWITCH_CP_CONTROL:
-              ROS_DEBUG_NAMED("krl","switched to OKC_SWITCH_CP_CONTROL");
+              ROS_DEBUG_STREAM_NAMED("krl","lwr_ctrl " << model_name_ << ":switched to OKC_SWITCH_CP_CONTROL");
               m_msr_data.robot.control = FRI_CTRL_CART_IMP;
               m_msr_data.krl.intData[OKC_ACK_IDX] = OKC_SWITCH_CP_CONTROL;
               m_msr_data.krl.intData[OKC_SEQ_IDX]++;
@@ -451,7 +451,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               break;
 
             case OKC_SWITCH_AXIS_CONTROL:
-              ROS_DEBUG_NAMED("krl","switched to OKC_SWITCH_AXIS_CONTROL");
+              ROS_DEBUG_STREAM_NAMED("krl","lwr_ctrl " << model_name_ << ":switched to OKC_SWITCH_AXIS_CONTROL");
               m_msr_data.robot.control = FRI_CTRL_JNT_IMP;
               m_msr_data.krl.intData[OKC_ACK_IDX] = OKC_SWITCH_AXIS_CONTROL;
               m_msr_data.krl.intData[OKC_SEQ_IDX]++;
@@ -460,7 +460,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               break;
 
             case OKC_SWITCH_POSITION:
-              ROS_DEBUG_NAMED("krl","switched to OKC_SWITCH_POSITION");
+              ROS_DEBUG_STREAM_NAMED("krl","lwr_ctrl " << model_name_ << ":switched to OKC_SWITCH_POSITION");
               m_msr_data.robot.control = FRI_CTRL_POSITION;
               m_msr_data.krl.intData[OKC_ACK_IDX] = OKC_SWITCH_POSITION;
               m_msr_data.krl.intData[OKC_SEQ_IDX]++;
@@ -479,7 +479,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               break;
 
             case OROCOS_OKC_SWITCH_CONTROL_MODE:
-              ROS_DEBUG_NAMED("krl","switched to OROCOS_OKC_SWITCH_CONTROL_MODE");
+              ROS_DEBUG_STREAM_NAMED("krl","lwr_ctrl " << model_name_ << ":switched to OROCOS_OKC_SWITCH_CONTROL_MODE");
               switch(m_cmd_data.krl.intData[1])
               {
                 case 10:
@@ -535,7 +535,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 
         if(ctrl_mode_switched)
         {
-          ROS_DEBUG("kuka ctrl mode switched");
+          ROS_DEBUG_STREAM("lwr_ctrl " << model_name_ << ":kuka ctrl mode switched");
           ctrl_mode_switched = false;
           m_msr_data.krl.boolData |= (1 << 0);
         }
@@ -593,7 +593,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
                     trq_cmd_(i) = LWRSIM_DEFAULT_TRQ_CMD;
                   }
                 }
-                ROS_DEBUG_THROTTLE(0.1, "kuka j%d stiffness %f damping %f",i, stiffness_(i), damping_(i));
+                ROS_DEBUG_THROTTLE(0.1, "lwr_ctrl %s:kuka j%d stiffness %f damping %f", model_name_.c_str(), i, stiffness_(i), damping_(i));
               }
 
               // compute the torque
@@ -604,7 +604,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
                 joints_[i]->SetForce(0, trq_(i) + grav(i));
               }
               brakes_on_ = false;
-              ROS_DEBUG_THROTTLE_NAMED(5.0, "krl", "joint control");
+              ROS_DEBUG_STREAM_THROTTLE_NAMED(5.0, "krl", "lwr_ctrl " << model_name_ << ":joint control");
             }
             else
             {
@@ -630,7 +630,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
                 T_D_.p.x(m_cmd_data.cmd.cartPos[3]);
                 T_D_.p.y(m_cmd_data.cmd.cartPos[7]);
                 T_D_.p.z(m_cmd_data.cmd.cartPos[11]);
-                ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","kuka TD %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", T_D_.M.data[0],
+                ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka TD %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", model_name_.c_str(), T_D_.M.data[0],
                                       T_D_.M.data[1], T_D_.M.data[2],
                                       T_D_.M.data[3], T_D_.M.data[4],
                                       T_D_.M.data[5], T_D_.M.data[6],
@@ -642,18 +642,18 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               // validate the desired pose
               if (!isValidRotation(T_D_.M))
               {
-                  ROS_DEBUG_THROTTLE_NAMED(0.1,"cart"," INVALID Desired Pose");
+                  ROS_DEBUG_STREAM_THROTTLE_NAMED(0.1,"cart","lwr_ctrl " << model_name_ << ": INVALID Desired Pose");
                   T_D_.M = KDL::Rotation::Identity();
               }
 
               // twist
-              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","kuka T %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", T.M.data[0],
+              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka T %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", model_name_.c_str(), T.M.data[0],
                                       T.M.data[1], T.M.data[2],
                                       T.M.data[3], T.M.data[4],
                                       T.M.data[5], T.M.data[6],
                                       T.M.data[7], T.M.data[8],
                                       T.p.x(), T.p.y() , T.p.z());
-              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","kuka T_old %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", T_old_.M.data[0],
+              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka T_old %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", model_name_.c_str(), T_old_.M.data[0],
                                       T_old_.M.data[1], T_old_.M.data[2],
                                       T_old_.M.data[3], T_old_.M.data[4],
                                       T_old_.M.data[5], T_old_.M.data[6],
@@ -663,7 +663,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               cart_twist = T.M.Inverse() * cart_twist;
               T_old_ = T;
 
-              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","kuka cart_twist vel %f, %f , %f, \nrot %f, %f, %f,", cart_twist.vel.data[0],
+              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka cart_twist vel %f, %f , %f, \nrot %f, %f, %f,", model_name_.c_str(), cart_twist.vel.data[0],
                 cart_twist.vel.data[1], cart_twist.vel.data[2],
                 cart_twist.rot.data[0], cart_twist.rot.data[1],
                 cart_twist.rot.data[2] );
@@ -683,9 +683,9 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
                   cart_damping_(i) = user_cart_damping_(i);
                 }
               }
-              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","kuka cart_stiffness_  %f, %f, %f, %f, %f, %f", cart_stiffness_(0),
+              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka cart_stiffness_  %f, %f, %f, %f, %f, %f", model_name_.c_str(),  cart_stiffness_(0),
                 cart_stiffness_(1),cart_stiffness_(2),cart_stiffness_(3),cart_stiffness_(4),cart_stiffness_(5));
-              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","kuka cart_damping_  %f, %f, %f, %f, %f, %f", cart_damping_(0),
+              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka cart_damping_  %f, %f, %f, %f, %f, %f", model_name_.c_str(), cart_damping_(0),
                 cart_damping_(1),cart_damping_(2),cart_damping_(3),cart_damping_(4),cart_damping_(5));
 
               // Start of user code ImpedanceControl
@@ -734,7 +734,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 
               T_S.M.GetQuaternion(e(0), e(1), e(2), e(3));
               
-              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","kuka T_S %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", T_S.M.data[0],
+              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka T_S %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", model_name_.c_str(), T_S.M.data[0],
                                       T_S.M.data[1], T_S.M.data[2],
                                       T_S.M.data[3], T_S.M.data[4],
                                       T_S.M.data[5], T_S.M.data[6],
@@ -764,7 +764,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               // add external wrench command
               F += ext_tcp_ft_;
 
-              ROS_DEBUG_THROTTLE_NAMED(0.1, "cart","kuka F  %f, %f, %f, %f, %f, %f", F(0),
+              ROS_DEBUG_THROTTLE_NAMED(0.1, "cart","lwr_control %s:kuka F  %f, %f, %f, %f, %f, %f", model_name_.c_str(), F(0),
                 F(1),F(2),F(3),F(4),F(5));
 
               // transform cartesian force to joint torques
@@ -772,7 +772,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               // project stiffness to joint space for local stiffness control
               Kj = jT * cart_stiffness_.asDiagonal() * jac.data;
 
-              ROS_DEBUG_THROTTLE_NAMED(0.1, "cart","kuka cart trq cmd %f, stiffness %f", tau(1), Kj(1,1));
+              ROS_DEBUG_THROTTLE_NAMED(0.1, "cart","lwr_control %s:kuka cart trq cmd %f, stiffness %f", model_name_.c_str(), tau(1), Kj(1,1));
               for(unsigned int i = 0; i < LBR_MNJ; i++) {
                 trq_cmd_(i) = tau(i);
                 stiffness_(i) = Kj(i, i);
@@ -787,12 +787,12 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               for(unsigned int i = 0; i< LBR_MNJ; i++) {
                 joints_[i]->SetForce(0, trq_(i) + grav(i));
               }
-              ROS_DEBUG_THROTTLE_NAMED(5.0, "krl", "cartesian control");
+              ROS_DEBUG_STREAM_THROTTLE_NAMED(5.0, "krl", "lwr_ctrl " << model_name_ << "cartesian control");
               brakes_on_ = false;
             }
             else
             {
-              ROS_DEBUG_THROTTLE_NAMED(5.0, "krl", "other control");
+              ROS_DEBUG_STREAM_THROTTLE_NAMED(5.0, "krl", "lwr_ctrl " << model_name_ << "other control");
               // just set gravity compensation
               for(unsigned int i = 0; i< LBR_MNJ; i++)
                 joints_[i]->SetForce(0, grav(i));
@@ -817,7 +817,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
       --cnt;
   }
 
-  ROS_DEBUG_THROTTLE(0.1, "kuka pos cmd %f pos current %f vel curr %f trq_cmd %f trq %f, grav %f", joint_pos_cmd_(1), joint_pos_(1), joint_vel_(1), trq_cmd_(1), trq_(1), grav(1));
+  ROS_DEBUG_THROTTLE(0.1, "lwr_ctrl %s :kuka pos cmd %f pos current %f vel curr %f trq_cmd %f trq %f, grav %f", model_name_.c_str(), joint_pos_cmd_(1), joint_pos_(1), joint_vel_(1), trq_cmd_(1), trq_(1), grav(1));
 }
 
 bool LWRController::DriveOnCb(std_srvs::Empty::Request  &req,
@@ -852,7 +852,7 @@ void LWRController::Brake(Eigen::Matrix<double, 7, 1> &pos, KDL::JntArray &grav)
     brakes_on_ = true;
   }
 
-  ROS_DEBUG_THROTTLE(5.0,"lwr enforcing brake_pos");
+  ROS_DEBUG_STREAM_THROTTLE(5.0,"lwr_ctrl " << model_name_ << "lwr enforcing brake_pos");
   //set the robot at same angles as brake pos
   for(unsigned int i = 0; i< LBR_MNJ; i++) {
     joints_[i]->SetPosition(0, brake_pos_(i));
