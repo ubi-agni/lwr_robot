@@ -230,7 +230,7 @@ class RqtLwrDashboard(Dashboard):
         self.btn_monitor_mode.setStyleSheet("background-color: rgb(197, 197, 197)")
         self.btn_drive_on = QPushButton("drive on")
         self.btn_drive_on.setStyleSheet("background-color: rgb(209, 149, 37)")
-        self.btn_drive_off = QPushButton("drive on")
+        self.btn_drive_off = QPushButton("drive off")
         self.btn_drive_off.setStyleSheet("background-color: rgb(90, 148, 95)")
         self.btn_reset_fri = QPushButton("reset fri")
         self.btn_end_krl = QPushButton("end krl")
