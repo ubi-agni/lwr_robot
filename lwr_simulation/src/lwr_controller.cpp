@@ -519,10 +519,10 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               m_msr_data.krl.intData[OKC_SEQ_IDX]++;
               m_msr_data.krl.intData[OKC_CMD_IDX] = 102;
               
-              for (unsigned int i = 0; i < LBR_MNJ; i++)
+              for (unsigned int i = 0; i < 6; i++)
               {
-                user_stiffness_(i) = m_cmd_data.krl.intData[9+i];
-                user_damping_(i) = m_cmd_data.krl.realData[10+i];
+                user_cart_stiffness_(i) = m_cmd_data.krl.intData[9+i];
+                user_cart_damping_(i) = m_cmd_data.krl.realData[10+i];
               }
               ctrl_mode_switched = true;
               break;
