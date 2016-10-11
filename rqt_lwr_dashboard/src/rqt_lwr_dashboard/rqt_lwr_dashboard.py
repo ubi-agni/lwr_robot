@@ -467,7 +467,16 @@ class RqtLwrDashboard(Dashboard):
                     # show a dialog with sliders
                     self.ui = StartDlg(mode)
                     if self.ui.exec_():
-                        print self.ui.getValues()
+                        values = self.ui.getValues()
+                        print values
+                        ret = False
+                        if mode == "Joint impedance":
+                            ret = self._lwrdb[group_name].set_axis_stiffness_damping(values["stiffness"], values["damping"])
+                        if mode == "Cartesian impedance":
+                            ret = self._lwrdb[group_name].set_cp_stiffness_damping(values["stiffness"], values["damping"])
+
+                        if ret is False:
+                            print "btn stiffness change did not succeed in changing stiffness"
                 else:
                     print "btn stiffness change requires a valid mode. (", mode, ") given"
             else:
