@@ -53,12 +53,18 @@ class StiffnessDamping_Dialog(object):
                 impedance_max = {}
                 impedance_max["stiffness"] = [2000]*7
                 impedance_max["damping"] = [10.0]*7
+                impedance_default = {}
+                impedance_default["stiffness"] = [500] * 7
+                impedance_default["damping"] = [7.0] * 7  # use max*10 and divide later to get float
             else:
                 if mode == "Cartesian impedance":
                     self.slider_names = ["X", "Y", "Z", "A", "B", "C"]
                     impedance_max = {}
                     impedance_max["stiffness"] = [500] * 6
                     impedance_max["damping"] = [10.0] * 6  # use max*10 and divide later to get float
+                    impedance_default = {}
+                    impedance_default["stiffness"] = [200] * 6
+                    impedance_default["damping"] = [7.0] * 6  # use max*10 and divide later to get float
                 else:
                     print mode
                     self.slider_names = []
@@ -90,17 +96,22 @@ class StiffnessDamping_Dialog(object):
                         self.vlayout_lbl.addWidget(QLabel(slider_name + ":"))
 
                     self.val[impedance][slider_name] = QLabel()
-                    self.val[impedance][slider_name].setText("0")
                     self.val[impedance][slider_name].setMinimumWidth(4*10)
+                    if impedance == "damping":
+                        self.val[impedance][slider_name].setText(str(impedance_default[impedance][i]/10.0))
+                    else:
+                        self.val[impedance][slider_name].setText(str(impedance_default[impedance][i]))
                     self.sl[impedance][slider_name] = QSlider()
                     self.sl[impedance][slider_name].setOrientation(Qt.Horizontal)
                     self.sl[impedance][slider_name].setObjectName(slider_name)
+                    
                     if impedance == "damping":
                         self.sl[impedance][slider_name].setTickInterval(1)
                     else:
                         self.sl[impedance][slider_name].setTickInterval(50)
                     self.sl[impedance][slider_name].setMaximum(impedance_max[impedance][i])
                     self.sl[impedance][slider_name].setMinimum(0)
+                    self.sl[impedance][slider_name].setValue(impedance_default[impedance][i])
 
                     self.sl[impedance][slider_name].valueChanged.connect(functools.partial(self.valueChange, slider_name=slider_name, impedance=impedance))
 
@@ -459,6 +470,8 @@ class RqtLwrDashboard(Dashboard):
                         print self.ui.getValues()
                 else:
                     print "btn stiffness change requires a valid mode. (", mode, ") given"
+            else:
+                print group_name, " is disabled, cannot set stiffness/damping"
         else:
             print "btn stiffness change requires a valid group name. (", group_name, ") given"
 
