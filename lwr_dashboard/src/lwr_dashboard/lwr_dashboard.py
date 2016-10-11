@@ -241,6 +241,9 @@ class LwrDashboard(object):
                                     (12, stiffness[4]),
                                     (13, stiffness[5]),
                                     (14, stiffness[6])])
+            else:
+                rospy.logwarn("wrong stiffness size %d, should be 7" 
+                              % len(stiffness))
 
         mydamping = damping
         if damping is not None:
@@ -252,8 +255,11 @@ class LwrDashboard(object):
                                   (13, damping[4]),
                                   (14, damping[5]),
                                   (15, damping[6])])
-
-        return self.krl_request(OKC_SET_AXIS_STIFFNESS_DAMPING, mystiffness, mydamping)
+            else:
+                rospy.logwarn("wrong damping size %d, should be 7"
+                              % len(damping))
+        if mystiffness is not None and mydamping is not None:
+            return self.krl_request(OKC_SET_AXIS_STIFFNESS_DAMPING, mystiffness, mydamping)
 
     def set_cp_stiffness_damping(self, stiffness=None, damping=None):
         """
@@ -261,25 +267,31 @@ class LwrDashboard(object):
         """
         mystiffness = stiffness
         if stiffness is not None:
-            if len(stiffness) == LWR_DOF:
+            if len(stiffness) == 6:
                 mystiffness = dict([(9, stiffness[0]),
                                     (10, stiffness[1]),
                                     (11, stiffness[2]),
                                     (12, stiffness[3]),
                                     (13, stiffness[4]),
                                     (14, stiffness[5])])
+            else:
+                rospy.logwarn("wrong stiffness size %d, should be 6"
+                              % len(stiffness))
 
         mydamping = damping
         if damping is not None:
-            if len(damping) == LWR_DOF:
+            if len(damping) == 6:
                 mydamping = dict([(10, damping[0]),
                                   (11, damping[1]),
                                   (12, damping[2]),
                                   (13, damping[3]),
                                   (14, damping[4]),
                                   (15, damping[5])])
-
-        return self.krl_request(OKC_SET_CP_STIFFNESS_DAMPING, mystiffness, mydamping)
+            else:
+                rospy.logwarn("wrong damping size %d, should be 6"
+                              % len(damping))
+        if mystiffness is not None and mydamping is not None:
+            return self.krl_request(OKC_SET_CP_STIFFNESS_DAMPING, mystiffness, mydamping)
 
     def move_park_pos(self):
         """
