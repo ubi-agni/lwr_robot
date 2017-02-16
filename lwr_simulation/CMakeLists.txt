@@ -2,15 +2,11 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(lwr_simulation)
 
-find_package(catkin REQUIRED COMPONENTS kuka_lwr_fri)
+find_package(catkin REQUIRED COMPONENTS kuka_lwr_fri kdl_parser)
 
 find_package(Boost REQUIRED COMPONENTS thread)
 find_package(gazebo REQUIRED)
 find_package(orocos_kdl REQUIRED)
-find_package(kdl_parser REQUIRED)
-
-
-#find_package(Eigen3 REQUIRED)
 
 # http://stackoverflow.com/questions/7172670/best-shortest-way-to-join-a-list-in-cmake
 function(JOIN VALUES GLUE OUTPUT)
@@ -35,7 +31,6 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${GAZEBO_INCLUDE_DIRS}
   ${orocos_kdl_INCLUDE_DIRS}
-  #${EIGEN3_INCLUDE_DIR}
 )
 
 link_directories(${orocos_kdl_LIBRARY_DIRS})
