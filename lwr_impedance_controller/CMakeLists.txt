@@ -7,7 +7,7 @@ add_message_files(DIRECTORY msg)
 generate_messages(DEPENDENCIES geometry_msgs std_msgs)
 
 catkin_package(
-  DEPENDS rtt
+  DEPENDS
   CATKIN_DEPENDS rtt_roscomm geometry_msgs std_msgs message_runtime kdl_conversions lwr_fri xeno_clock
 )
 
