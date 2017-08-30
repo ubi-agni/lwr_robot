@@ -674,4 +674,15 @@ class RqtLwrDashboard(Dashboard):
 
         self._last_error[group_name] = error
 
-    # def shutdown_dashboard(self):
+    def unregister(self):
+        it = QTreeWidgetItemIterator(self)
+        while it.value():
+            try:
+                it.value().on_close()
+            except:
+                pass
+            it += 1
+
+    def shutdown_dashboard(self):
+        for group in self._diag_subs:
+            self._diag_subs[group].unregister()
