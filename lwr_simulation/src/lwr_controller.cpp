@@ -81,6 +81,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     payloadCOG_ = math::Vector3(0,0,0);
 
   gzdbg << "payloadCOG : " << payloadCOG_[0] << ", " << payloadCOG_[1] << ", " << payloadCOG_[2] << "\n";
+  gzdbg << "payload mass : " << payloadMass_ << "\n";
 
   if (_sdf->HasElement("gravityDirection"))
     gravityDirection_ = _sdf->GetElement("gravityDirection")->Get<math::Vector3>();
@@ -229,17 +230,28 @@ void LWRController::GetRobotChain()
   // get its dynamic parameters
   KDL::RigidBodyInertia inertia_ee = segment_ee_ptr->getInertia();
   // std::string name_ee = segment_ee_ptr->getName();
+  // retrieve the current mass, cog and inertia of the last segment
   double m_ee = inertia_ee.getMass();
   KDL::Vector cog_ee = inertia_ee.getCOG();
+  gzdbg << "initial CoG of ee : " << cog_ee[0] << ", " << cog_ee[1] << ", " << cog_ee[2] << "\n";
+  gzdbg << "initial mass of ee : " << m_ee << "\n";
   KDL::RotationalInertia rot_inertia_ee = inertia_ee.getRotationalInertia();
 
   // add payload cog offset and mass
+  // retrieve tool mass and cog offset. 
+  // the offset is the relative position of the tool com from the last segment cog
+  // given in the frame orientation of the last segment.
+  // so this offset is valid only for an certain assembly (calib of the tool)
   KDL::Vector payload_cog_offset(payloadCOG_[0], payloadCOG_[1], payloadCOG_[2]);
-  m_ee += payloadMass_;
-  cog_ee += payload_cog_offset;
+  double m_combined = m_ee + payloadMass_;
+  KDL::Vector cog_offset_combined = (payload_cog_offset - cog_ee) * payloadMass_ / m_combined;
+  cog_ee += cog_offset_combined;
+  
+  gzdbg << "combined CoG of ee : " << cog_ee[0] << ", " << cog_ee[1] << ", " << cog_ee[2] << "\n";
+  gzdbg << "combined mass of ee : " << m_combined << "\n";
 
   // set the new inertia at the end-effector.
-  segment_ee_ptr->setInertia(KDL::RigidBodyInertia(m_ee, cog_ee, rot_inertia_ee));
+  segment_ee_ptr->setInertia(KDL::RigidBodyInertia(m_combined, cog_ee, rot_inertia_ee));
 
   dyn = new KDL::ChainDynParam(chain_, KDL::Vector(gravityDirection_[0],gravityDirection_[1],gravityDirection_[2]));
   fk = new KDL::ChainFkSolverPos_recursive(chain_);
