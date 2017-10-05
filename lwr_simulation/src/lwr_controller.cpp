@@ -582,6 +582,14 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
                   stiffness_(i) = LWRSIM_DEFAULT_STIFFNESS;
                   damping_(i) = LWRSIM_DEFAULT_DAMPING;
                   trq_cmd_(i) = LWRSIM_DEFAULT_TRQ_CMD;
+
+                  //  compute the iterm
+                  double delta_t = 0.001; // (assume 1 ms loop)
+                  i_term_(i) = i_term_(i) + (joint_pos_cmd_(i) - joint_pos_(i)) * delta_t;
+                  if (i_term_(i) > i_max_)
+                    i_term_(i) = i_max_;
+                  if (i_term_(i) < -i_max_)
+                    i_term_(i) = -i_max_;
                 }
 
                 // Joint Impedance mode
@@ -615,22 +623,14 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
                   {
                     trq_cmd_(i) = LWRSIM_DEFAULT_TRQ_CMD;
                   }
+                  
+                  // iterm must be zero otherwise one cannot get impendance
+                  i_term_(i) = 0.0;
                 }
                 ROS_DEBUG_THROTTLE(0.1, "lwr_ctrl %s:kuka j%d stiffness %f damping %f", model_name_.c_str(), i, stiffness_(i), damping_(i));
               }
 
               // compute the torque
-              
-              //  compute the iterm
-              double delta_t = 0.001; // (assume 1 ms loop)
-              i_term_ = i_term_ + (joint_pos_cmd_ - joint_pos_) * delta_t;
-              for(unsigned int i = 0; i< LBR_MNJ; i++) {
-                if (i_term_(i) > i_max_)
-                  i_term_(i) = i_max_;
-                if (i_term_(i) < -i_max_)
-                  i_term_(i) = -i_max_;
-              }
-
               trq_ = stiffness_.asDiagonal() * (joint_pos_cmd_ - joint_pos_) - damping_.asDiagonal() * joint_vel_ + i_gain_.asDiagonal() * i_term_ + trq_cmd_;
               
               ROS_DEBUG_STREAM_THROTTLE(0.1, "i_term(0) " << i_term_(0) << " i_gain(0) " << i_gain_(0) << " trq(0) " << trq_(0));
