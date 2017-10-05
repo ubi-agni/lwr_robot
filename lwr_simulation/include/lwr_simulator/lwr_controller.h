@@ -54,6 +54,8 @@
 #define LWRSIM_DEFAULT_CARTDAMPING (0.7)
 #define LWRSIM_DEFAULT_DAMPING (1.0)
 #define LWRSIM_DEFAULT_TRQ_CMD (0.0)
+#define LWRSIM_DEFAULT_IGAIN (0.0)
+#define LWRSIM_DEFAULT_IMAX 10.0
 
 // OpenKC compatibility
 #define OKC_FRI_START 1
@@ -157,10 +159,13 @@ namespace gazebo
         Eigen::Matrix<double, 7, 1> stiffness_;
         Eigen::Matrix<double, 7, 1> user_stiffness_; // user default
         Eigen::Matrix<double, 7, 1> damping_;
+        Eigen::Matrix<double, 7, 1> i_gain_;
+        Eigen::Matrix<double, 7, 1> i_term_;
         Eigen::Matrix<double, 7, 1> user_damping_; // user default
         Eigen::Matrix<double, 7, 1> trq_cmd_;
         Eigen::Matrix<double, 7, 1> trq_;
         Eigen::Matrix<double, 7, 7> mass_;
+        double i_max_;
         
         Eigen::Matrix<double, 6, 1> cart_pos_cmd_;
         KDL::Frame T_old_;

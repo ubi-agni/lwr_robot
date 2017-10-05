@@ -5,7 +5,8 @@
 	<xacro:macro name="lwr_arm_gazebo_controller" params="namespace port prefix gravity_dir:=^|'0 0 -9.81'
 		                                                    payload_mass:=^|0.0 payload_cog:=^|'0 0 0'
 		                                                    init_joint_pos:=^|'0 0 0 0 0 0 0'
-                                                        auto_on:=1"> 
+		                                                    igains:=^|''
+                                                        auto_on:=1">
 		<xacro:property name="prefix_"  value="${prefix + '_' if prefix else ''}" />
 		<gazebo> 
 			<plugin name="${prefix_}lwr_arm_controller" filename="liblwr_controller.so">
@@ -14,7 +15,7 @@
 				<robotNamespace>${namespace}</robotNamespace>
 				<remotePort>${port}</remotePort>
 				<baseLink>${prefix_}arm_base_link</baseLink>
-				<!-- p<toolLink>${prefix_}tool_mount</toolLink>-->
+				<!-- <toolLink>${prefix_}tool_mount</toolLink>-->
 				<xacro:if value="${gravity_dir not in ['','-']}" >
 					<gravityDirection>${gravity_dir}</gravityDirection>
 				</xacro:if>
@@ -25,13 +26,22 @@
 					<payloadCOG>${payload_cog}</payloadCOG>
 				</xacro:if>
 				<auto_on>${auto_on}</auto_on>
-				<xacro:element xacro:name="${prefix_}arm_0_joint">${init_joint_pos.split()[0]}</xacro:element>
-				<xacro:element xacro:name="${prefix_}arm_1_joint">${init_joint_pos.split()[1]}</xacro:element>
-				<xacro:element xacro:name="${prefix_}arm_2_joint">${init_joint_pos.split()[2]}</xacro:element>
-				<xacro:element xacro:name="${prefix_}arm_3_joint">${init_joint_pos.split()[3]}</xacro:element>
-				<xacro:element xacro:name="${prefix_}arm_4_joint">${init_joint_pos.split()[4]}</xacro:element>
-				<xacro:element xacro:name="${prefix_}arm_5_joint">${init_joint_pos.split()[5]}</xacro:element>
-				<xacro:element xacro:name="${prefix_}arm_6_joint">${init_joint_pos.split()[6]}</xacro:element>
+				<xacro:element xacro:name="${prefix_}arm_0_joint_init">${init_joint_pos.split()[0]}</xacro:element>
+				<xacro:element xacro:name="${prefix_}arm_1_joint_init">${init_joint_pos.split()[1]}</xacro:element>
+				<xacro:element xacro:name="${prefix_}arm_2_joint_init">${init_joint_pos.split()[2]}</xacro:element>
+				<xacro:element xacro:name="${prefix_}arm_3_joint_init">${init_joint_pos.split()[3]}</xacro:element>
+				<xacro:element xacro:name="${prefix_}arm_4_joint_init">${init_joint_pos.split()[4]}</xacro:element>
+				<xacro:element xacro:name="${prefix_}arm_5_joint_init">${init_joint_pos.split()[5]}</xacro:element>
+				<xacro:element xacro:name="${prefix_}arm_6_joint_init">${init_joint_pos.split()[6]}</xacro:element>
+				<xacro:if value="${igains.split().__len__() == 7}" >
+					<xacro:element xacro:name="${prefix_}arm_0_joint_igain">${igains.split()[0]}</xacro:element>
+					<xacro:element xacro:name="${prefix_}arm_1_joint_igain">${igains.split()[1]}</xacro:element>
+					<xacro:element xacro:name="${prefix_}arm_2_joint_igain">${igains.split()[2]}</xacro:element>
+					<xacro:element xacro:name="${prefix_}arm_3_joint_igain">${igains.split()[3]}</xacro:element>
+					<xacro:element xacro:name="${prefix_}arm_4_joint_igain">${igains.split()[4]}</xacro:element>
+					<xacro:element xacro:name="${prefix_}arm_5_joint_igain">${igains.split()[5]}</xacro:element>
+					<xacro:element xacro:name="${prefix_}arm_6_joint_igain">${igains.split()[6]}</xacro:element>
+				</xacro:if>
 			</plugin>
 		</gazebo>  
 	</xacro:macro>

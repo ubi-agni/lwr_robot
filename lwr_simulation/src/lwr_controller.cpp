@@ -126,11 +126,19 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
       ROS_ERROR_STREAM("lwr_ctrl " << model_name_ << ": A joint named \"" << joint_name << "\" is not part of Mechanism Controlled joints.\n");
     }
 
-    if(_sdf->HasElement(joint_name)) {
-      double init = _sdf->GetElement(joint_name)->Get<double>();
+    if(_sdf->HasElement(joint_name + "_init")) {
+      double init = _sdf->GetElement(joint_name + "_init")->Get<double>();
       joint->SetPosition(0, init);
       brake_pos_(i) = init; // also lock brakes at init pos
     }
+    
+    if (_sdf->HasElement(joint_name + "_igain"))
+    {
+      i_gain_(i) = _sdf->GetElement(joint_name + "_igain")->Get<double>();
+      gzdbg << "joint " << joint_name << " using igain : " << i_gain_(i) << "\n";
+    }
+    else
+      i_gain_(i) = LWRSIM_DEFAULT_IGAIN;
 
     // stiffness_(i) = 200.0;
     // damping_(i) = 5.0;
@@ -139,6 +147,8 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     user_stiffness_(i) = LWRSIM_DEFAULT_STIFFNESS;
     damping_(i) = LWRSIM_DEFAULT_DAMPING;
     user_damping_(i) = LWRSIM_DEFAULT_DAMPING;
+    i_term_(i) = 0.0;
+
     trq_cmd_(i) = LWRSIM_DEFAULT_TRQ_CMD;
     joint_pos_cmd_(i) = joints_[i]->GetAngle(0).Radian();
 
@@ -148,8 +158,9 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     //init also stiffness and damping
     m_cmd_data.cmd.jntStiffness[i] = stiffness_(i);
     m_cmd_data.cmd.jntDamping[i] = damping_(i);
-
   }
+
+  i_max_ = LWRSIM_DEFAULT_IMAX;
 
   for(unsigned int i = 0; i< FRI_CART_VEC; i++)
   {
@@ -609,7 +620,20 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               }
 
               // compute the torque
-              trq_ = stiffness_.asDiagonal() * (joint_pos_cmd_ - joint_pos_) - damping_.asDiagonal() * joint_vel_ + trq_cmd_;
+              
+              //  compute the iterm
+              double delta_t = 0.001; // (assume 1 ms loop)
+              i_term_ = i_term_ + (joint_pos_cmd_ - joint_pos_) * delta_t;
+              for(unsigned int i = 0; i< LBR_MNJ; i++) {
+                if (i_term_(i) > i_max_)
+                  i_term_(i) = i_max_;
+                if (i_term_(i) < -i_max_)
+                  i_term_(i) = -i_max_;
+              }
+
+              trq_ = stiffness_.asDiagonal() * (joint_pos_cmd_ - joint_pos_) - damping_.asDiagonal() * joint_vel_ + i_gain_.asDiagonal() * i_term_ + trq_cmd_;
+              
+              ROS_DEBUG_STREAM_THROTTLE(0.1, "i_term(0) " << i_term_(0) << " i_gain(0) " << i_gain_(0) << " trq(0) " << trq_(0));
 
               // add gravity compensation
               for(unsigned int i = 0; i< LBR_MNJ; i++) {
@@ -784,7 +808,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               // project stiffness to joint space for local stiffness control
               Kj = jT * cart_stiffness_.asDiagonal() * jac.data;
 
-              ROS_DEBUG_THROTTLE_NAMED(0.1, "cart","lwr_control %s:kuka cart trq cmd %f, stiffness %f", model_name_.c_str(), tau(1), Kj(1,1));
+              ROS_DEBUG_THROTTLE_NAMED(0.1, "cart","lwr_control %s:kuka cart trq cmd %f, stiffness %f", model_name_.c_str(), tau(0), Kj(0,0));
               for(unsigned int i = 0; i < LBR_MNJ; i++) {
                 trq_cmd_(i) = tau(i);
                 stiffness_(i) = Kj(i, i);
@@ -829,7 +853,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
       --cnt;
   }
 
-  ROS_DEBUG_THROTTLE(0.1, "lwr_ctrl %s :kuka pos cmd %f pos current %f vel curr %f trq_cmd %f trq %f, grav %f", model_name_.c_str(), joint_pos_cmd_(1), joint_pos_(1), joint_vel_(1), trq_cmd_(1), trq_(1), grav(1));
+  ROS_DEBUG_THROTTLE(0.1, "lwr_ctrl %s :kuka pos cmd %f pos current %f vel curr %f trq_cmd %f trq %f, grav %f", model_name_.c_str(), joint_pos_cmd_(0), joint_pos_(0), joint_vel_(0), trq_cmd_(0), trq_(0), grav(0));
 }
 
 bool LWRController::DriveOnCb(std_srvs::Empty::Request  &req,
