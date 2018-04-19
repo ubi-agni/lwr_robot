@@ -684,5 +684,7 @@ class RqtLwrDashboard(Dashboard):
             it += 1
 
     def shutdown_dashboard(self):
+        self.timer["left_arm"].stop()
+        self.timer["right_arm"].stop()
         for group in self._diag_subs:
             self._diag_subs[group].unregister()
