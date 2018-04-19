@@ -377,10 +377,11 @@ class RqtLwrDashboard(Dashboard):
             if self.watchdog_timeout[group_name]:
                 self.change_button_state(group_name)
                 # cleanup connection that have a publisher and not data coming in
-                if self._diag_subs[group_name].get_num_connections() > 0:
-                    self._diag_subs[group_name].unregister()
-                    del self._diag_subs[group_name]
-                    self.init_subscribers(group_name)
+                if self._diag_subs[group_name] is not None:
+                    if self._diag_subs[group_name].get_num_connections() > 0:
+                        self._diag_subs[group_name].unregister()
+                        del self._diag_subs[group_name]
+                        self.init_subscribers(group_name)
             else:
                 self.watchdog_timeout[group_name] = True
 
