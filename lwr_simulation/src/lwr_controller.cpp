@@ -345,6 +345,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 
   if(cnt <= 10)
   {
+    m_msr_data.intf.quality=FRI_QUALITY_BAD;
     if (m_msr_data.intf.state != FRI_STATE_MON)
     {
       ROS_INFO_STREAM("lwr_ctrl " << model_name_ << ":bad communication, changing to FRI_STATE_MON");
@@ -355,6 +356,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
   }
   else
   {
+    m_msr_data.intf.quality=FRI_QUALITY_PERFECT;
     if (auto_on_)
     {
       drive_on_ = true;
