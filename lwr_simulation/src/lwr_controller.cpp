@@ -101,9 +101,14 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   {
     auto_on_ = _sdf->GetElement("auto_on")->Get<bool>();
     gzdbg << "auto_on : " << auto_on_ << "\n";
+    if (auto_on_)
+      ROS_INFO_STREAM("lwr_ctrl " << model_name_ << ":started in auto_on mode (user request)");
+    else
+      ROS_INFO_STREAM("lwr_ctrl " << model_name_ << ":started without auto_on mode (user request)");
   }
   else
   {
+    ROS_INFO_STREAM("lwr_ctrl " << model_name_ << ":started in auto_on mode (default)");
     gzdbg << "auto_on: default to true" << "\n";
     auto_on_ = true;
   }
