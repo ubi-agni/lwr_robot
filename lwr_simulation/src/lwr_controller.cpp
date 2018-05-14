@@ -867,6 +867,7 @@ bool LWRController::DriveOnCb(std_srvs::Empty::Request  &req,
                               std_srvs::Empty::Response &res)
 {
   drive_on_ = true;
+  ROS_DEBUG("drive on request");
   m_msr_data.robot.power = 0xFFFF;
   return true;
 }
@@ -874,6 +875,7 @@ bool LWRController::DriveOnCb(std_srvs::Empty::Request  &req,
 bool LWRController::DriveOffCb(std_srvs::Empty::Request  &req,
                               std_srvs::Empty::Response &res)
 {
+  ROS_DEBUG("drive off request");
   // save the current position as brake position;
   for(unsigned int i = 0; i< 7; i++)
   {
