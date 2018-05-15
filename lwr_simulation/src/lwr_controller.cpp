@@ -343,7 +343,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
     }
   }
 
-  if(cnt <= 10)
+  if (cnt <= 10)
   {
     m_msr_data.intf.quality=FRI_QUALITY_BAD;
     if (m_msr_data.intf.state != FRI_STATE_MON)
@@ -356,7 +356,10 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
   }
   else
   {
-    m_msr_data.intf.quality=FRI_QUALITY_PERFECT;
+    if (cnt <= 15)
+      m_msr_data.intf.quality=FRI_QUALITY_OK;
+    else
+      m_msr_data.intf.quality=FRI_QUALITY_PERFECT;
     if (auto_on_)
     {
       drive_on_ = true;
@@ -855,9 +858,10 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
     }
   }
   else {
-    Brake(joint_pos_, grav);
     if(cnt > 0)
       --cnt;
+    if(cnt <= 10)
+      Brake(joint_pos_, grav);
   }
 
   ROS_DEBUG_THROTTLE(0.1, "lwr_ctrl %s :kuka pos cmd %f pos current %f vel curr %f trq_cmd %f trq %f, grav %f", model_name_.c_str(), joint_pos_cmd_(0), joint_pos_(0), joint_vel_(0), trq_cmd_(0), trq_(0), grav(0));
