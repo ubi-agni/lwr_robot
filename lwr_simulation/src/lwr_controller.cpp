@@ -883,6 +883,7 @@ bool LWRController::DriveOffCb(std_srvs::Empty::Request  &req,
   }
   drive_on_ = false;
   m_msr_data.robot.power = 0x0;
+  m_msr_data.intf.state = FRI_STATE_MON;
   return true;
 }
 
