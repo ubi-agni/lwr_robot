@@ -112,8 +112,9 @@ namespace gazebo
         bool DriveOffCb(std_srvs::Empty::Request  &req,
                               std_srvs::Empty::Response &res);
                               
-        void Brake(Eigen::Matrix<double, 7, 1> &pos, KDL::JntArray &grav);
+        void Freeze(Eigen::Matrix<double, 7, 1> &pos, KDL::JntArray &grav);
         bool brakes_on_;
+        bool freeze_;
                               
         bool isValidRotation(KDL::Rotation &rot);
         /*
@@ -155,7 +156,7 @@ namespace gazebo
         Eigen::Matrix<double, 7, 1> joint_pos_prev_;
         Eigen::Matrix<double, 7, 1> joint_pos_cmd_;
         Eigen::Matrix<double, 7, 1> joint_vel_;
-        Eigen::Matrix<double, 7, 1> brake_pos_;
+        Eigen::Matrix<double, 7, 1> freeze_pos_;
         Eigen::Matrix<double, 7, 1> stiffness_;
         Eigen::Matrix<double, 7, 1> user_stiffness_; // user default
         Eigen::Matrix<double, 7, 1> damping_;

@@ -134,7 +134,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     if(_sdf->HasElement(joint_name + "_init")) {
       double init = _sdf->GetElement(joint_name + "_init")->Get<double>();
       joint->SetPosition(0, init);
-      brake_pos_(i) = init; // also lock brakes at init pos
+      freeze_pos_(i) = init; // also lock brakes at init pos
     }
     
     if (_sdf->HasElement(joint_name + "_igain"))
@@ -221,6 +221,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   cnt = 0;
   drive_on_ = false;
   brakes_on_ = true; // initially true to lock brakes at init
+  freeze_ = true;
 
   // services for switching on and off the drives and release or activate the brakes
   drive_on_srv_ = rosnode_->advertiseService("drive_on", &LWRController::DriveOnCb, this);
@@ -352,6 +353,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
       m_msr_data.intf.state = FRI_STATE_MON;
     }
     drive_on_ = false;
+    brakes_on_ = true;
     m_msr_data.robot.power = 0x0;
   }
   else
@@ -363,7 +365,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
     if (auto_on_)
     {
       drive_on_ = true;
-      m_msr_data.robot.power = 0xFFFF;
+
       // don't release brakes here, only if valid data
       if (m_msr_data.intf.state == FRI_STATE_MON)
       {
@@ -371,6 +373,14 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
         m_msr_data.intf.state = FRI_STATE_CMD;
       }
     }
+  }
+
+  if (drive_on_ && !brakes_on_)
+    m_msr_data.robot.power = 0xFFFF;
+  else
+  {
+    m_msr_data.robot.power = 0x0;
+    m_msr_data.intf.state = FRI_STATE_MON;
   }
 
   // send msr data to socket
@@ -397,10 +407,12 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 			(sockaddr*) &cliAddr, &cliAddr_len);
     if (sizeof(tFriCmdData) != n) {
       if (n == -1)
-        ROS_DEBUG_STREAM_THROTTLE(0.5, "lwr_ctrl " << model_name_ << ":recv err : " << strerror(errno));
+        ROS_DEBUG_STREAM_THROTTLE_NAMED(0.5, "udp", "lwr_ctrl " << model_name_ << ":recv err : " << strerror(errno));
       else
-        ROS_DEBUG_STREAM_THROTTLE(0.5, "lwr_ctrl " << model_name_ << ":bad packet length : " << n << " should be " << sizeof(tFriCmdData));
-      Brake(joint_pos_, grav);
+        ROS_DEBUG_STREAM_THROTTLE_NAMED(0.5, "udp", "lwr_ctrl " << model_name_ << ":bad packet length : " << n << " should be " << sizeof(tFriCmdData));
+      brakes_on_ = true;
+      drive_on_ = false;
+      Freeze(joint_pos_, grav);
     }
     else
     {
@@ -437,6 +449,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 
             case OKC_FRI_STOP:
               ROS_DEBUG_STREAM_NAMED("krl","lwr_ctrl " << model_name_ << ":switched to FRISTATE_MON");
+              brakes_on_ = false;
               if(m_msr_data.intf.state != FRI_STATE_MON)
               {
                 m_msr_data.intf.state = FRI_STATE_MON;
@@ -568,7 +581,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 
         if(ctrl_mode_switched)
         {
-          ROS_DEBUG_STREAM("lwr_ctrl " << model_name_ << ":kuka ctrl mode switched");
+          ROS_DEBUG_STREAM_NAMED("krl", "lwr_ctrl " << model_name_ << ":kuka ctrl mode switched");
           ctrl_mode_switched = false;
           m_msr_data.krl.boolData |= (1 << 0);
         }
@@ -584,6 +597,8 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
           if ( m_msr_data.robot.control == FRI_CTRL_JNT_IMP ||  m_msr_data.robot.control == FRI_CTRL_POSITION ) {
             if (m_msr_data.intf.state == FRI_STATE_CMD)
             {
+              brakes_on_ = false;
+              freeze_ = false;
               for(unsigned int i = 0; i < LBR_MNJ; i++) {
                 joint_pos_cmd_(i) = m_cmd_data.cmd.jntPos[i];
 
@@ -637,204 +652,205 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
                   // iterm must be zero otherwise one cannot get impendance
                   i_term_(i) = 0.0;
                 }
-                ROS_DEBUG_THROTTLE(0.1, "lwr_ctrl %s:kuka j%d stiffness %f damping %f", model_name_.c_str(), i, stiffness_(i), damping_(i));
+                ROS_DEBUG_THROTTLE_NAMED(0.1, "joint", "lwr_ctrl %s:kuka j%d stiffness %f damping %f", model_name_.c_str(), i, stiffness_(i), damping_(i));
               }
 
               // compute the torque
               trq_ = stiffness_.asDiagonal() * (joint_pos_cmd_ - joint_pos_) - damping_.asDiagonal() * joint_vel_ + i_gain_.asDiagonal() * i_term_ + trq_cmd_;
               
-              ROS_DEBUG_STREAM_THROTTLE(0.1, "i_term(0) " << i_term_(0) << " i_gain(0) " << i_gain_(0) << " trq(0) " << trq_(0));
+              ROS_DEBUG_STREAM_THROTTLE_NAMED(0.1, "joint", "i_term(0) " << i_term_(0) << " i_gain(0) " << i_gain_(0) << " trq(0) " << trq_(0));
 
               // add gravity compensation
               for(unsigned int i = 0; i< LBR_MNJ; i++) {
                 joints_[i]->SetForce(0, trq_(i) + grav(i));
               }
-              brakes_on_ = false;
               ROS_DEBUG_STREAM_THROTTLE_NAMED(5.0, "krl", "lwr_ctrl " << model_name_ << ":joint control");
             }
             else
             {
-              Brake(joint_pos_, grav);
+              Freeze(joint_pos_, grav);
             }
           }
           else
           {
             // Cart control mode
             if ( m_msr_data.robot.control == FRI_CTRL_CART_IMP ) {
-
+              if (m_msr_data.intf.state == FRI_STATE_CMD) {
+                brakes_on_ = false;
+                freeze_ = false;
                 joint_pos_cmd_ = joint_pos_; //maybe take the joint pos from previous cycle
-              // commanded cart pos
+                // commanded cart pos
 
-              
-              if (m_cmd_data.cmd.cmdFlags & FRI_CMD_CARTPOS | cart_initialized)
-              {
-                T_D_.M = KDL::Rotation(m_cmd_data.cmd.cartPos[0],
-                    m_cmd_data.cmd.cartPos[1], m_cmd_data.cmd.cartPos[2],
-                    m_cmd_data.cmd.cartPos[4], m_cmd_data.cmd.cartPos[5],
-                    m_cmd_data.cmd.cartPos[6], m_cmd_data.cmd.cartPos[8],
-                    m_cmd_data.cmd.cartPos[9], m_cmd_data.cmd.cartPos[10]);
-                T_D_.p.x(m_cmd_data.cmd.cartPos[3]);
-                T_D_.p.y(m_cmd_data.cmd.cartPos[7]);
-                T_D_.p.z(m_cmd_data.cmd.cartPos[11]);
-                ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka TD %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", model_name_.c_str(), T_D_.M.data[0],
-                                      T_D_.M.data[1], T_D_.M.data[2],
-                                      T_D_.M.data[3], T_D_.M.data[4],
-                                      T_D_.M.data[5], T_D_.M.data[6],
-                                      T_D_.M.data[7], T_D_.M.data[8],
-                                      T_D_.p.x(), T_D_.p.y() , T_D_.p.z());
-              }
-              
-
-              // validate the desired pose
-              if (!isValidRotation(T_D_.M))
-              {
-                  ROS_DEBUG_STREAM_THROTTLE_NAMED(0.1,"cart","lwr_ctrl " << model_name_ << ": INVALID Desired Pose");
-                  T_D_.M = KDL::Rotation::Identity();
-              }
-
-              // twist
-              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka T %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", model_name_.c_str(), T.M.data[0],
-                                      T.M.data[1], T.M.data[2],
-                                      T.M.data[3], T.M.data[4],
-                                      T.M.data[5], T.M.data[6],
-                                      T.M.data[7], T.M.data[8],
-                                      T.p.x(), T.p.y() , T.p.z());
-              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka T_old %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", model_name_.c_str(), T_old_.M.data[0],
-                                      T_old_.M.data[1], T_old_.M.data[2],
-                                      T_old_.M.data[3], T_old_.M.data[4],
-                                      T_old_.M.data[5], T_old_.M.data[6],
-                                      T_old_.M.data[7], T_old_.M.data[8],
-                                      T_old_.p.x(), T_old_.p.y() , T_old_.p.z());
-              KDL::Twist cart_twist;// = KDL::diff(T_old_, T, m_msr_data.intf.desiredMsrSampleTime);
-              cart_twist = T.M.Inverse() * cart_twist;
-              T_old_ = T;
-
-              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka cart_twist vel %f, %f , %f, \nrot %f, %f, %f,", model_name_.c_str(), cart_twist.vel.data[0],
-                cart_twist.vel.data[1], cart_twist.vel.data[2],
-                cart_twist.rot.data[0], cart_twist.rot.data[1],
-                cart_twist.rot.data[2] );
-
-              // ext tool wrench, cart stiffness and damping
-              for(unsigned int i = 0; i < FRI_CART_VEC; i++) {
-                if (m_cmd_data.cmd.cmdFlags & FRI_CMD_TCPFT)
-                  ext_tcp_ft_(i) = m_cmd_data.cmd.addTcpFT[i];
-                if (m_cmd_data.cmd.cmdFlags & (FRI_CMD_CARTSTIFF | FRI_CMD_CARTDAMP))
+                
+                if (m_cmd_data.cmd.cmdFlags & FRI_CMD_CARTPOS | cart_initialized)
                 {
-                  cart_stiffness_(i) = m_cmd_data.cmd.cartStiffness[i];
-                  cart_damping_(i) = m_cmd_data.cmd.cartDamping[i];
+                  T_D_.M = KDL::Rotation(m_cmd_data.cmd.cartPos[0],
+                      m_cmd_data.cmd.cartPos[1], m_cmd_data.cmd.cartPos[2],
+                      m_cmd_data.cmd.cartPos[4], m_cmd_data.cmd.cartPos[5],
+                      m_cmd_data.cmd.cartPos[6], m_cmd_data.cmd.cartPos[8],
+                      m_cmd_data.cmd.cartPos[9], m_cmd_data.cmd.cartPos[10]);
+                  T_D_.p.x(m_cmd_data.cmd.cartPos[3]);
+                  T_D_.p.y(m_cmd_data.cmd.cartPos[7]);
+                  T_D_.p.z(m_cmd_data.cmd.cartPos[11]);
+                  ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka TD %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", model_name_.c_str(), T_D_.M.data[0],
+                                        T_D_.M.data[1], T_D_.M.data[2],
+                                        T_D_.M.data[3], T_D_.M.data[4],
+                                        T_D_.M.data[5], T_D_.M.data[6],
+                                        T_D_.M.data[7], T_D_.M.data[8],
+                                        T_D_.p.x(), T_D_.p.y() , T_D_.p.z());
                 }
-                else
+                
+
+                // validate the desired pose
+                if (!isValidRotation(T_D_.M))
                 {
-                  cart_stiffness_(i) = user_cart_stiffness_(i);
-                  cart_damping_(i) = user_cart_damping_(i);
+                    ROS_DEBUG_STREAM_THROTTLE_NAMED(0.1,"cart","lwr_ctrl " << model_name_ << ": INVALID Desired Pose");
+                    T_D_.M = KDL::Rotation::Identity();
                 }
+
+                // twist
+                ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka T %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", model_name_.c_str(), T.M.data[0],
+                                        T.M.data[1], T.M.data[2],
+                                        T.M.data[3], T.M.data[4],
+                                        T.M.data[5], T.M.data[6],
+                                        T.M.data[7], T.M.data[8],
+                                        T.p.x(), T.p.y() , T.p.z());
+                ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka T_old %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", model_name_.c_str(), T_old_.M.data[0],
+                                        T_old_.M.data[1], T_old_.M.data[2],
+                                        T_old_.M.data[3], T_old_.M.data[4],
+                                        T_old_.M.data[5], T_old_.M.data[6],
+                                        T_old_.M.data[7], T_old_.M.data[8],
+                                        T_old_.p.x(), T_old_.p.y() , T_old_.p.z());
+                KDL::Twist cart_twist;// = KDL::diff(T_old_, T, m_msr_data.intf.desiredMsrSampleTime);
+                cart_twist = T.M.Inverse() * cart_twist;
+                T_old_ = T;
+
+                ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka cart_twist vel %f, %f , %f, \nrot %f, %f, %f,", model_name_.c_str(), cart_twist.vel.data[0],
+                  cart_twist.vel.data[1], cart_twist.vel.data[2],
+                  cart_twist.rot.data[0], cart_twist.rot.data[1],
+                  cart_twist.rot.data[2] );
+
+                // ext tool wrench, cart stiffness and damping
+                for(unsigned int i = 0; i < FRI_CART_VEC; i++) {
+                  if (m_cmd_data.cmd.cmdFlags & FRI_CMD_TCPFT)
+                    ext_tcp_ft_(i) = m_cmd_data.cmd.addTcpFT[i];
+                  if (m_cmd_data.cmd.cmdFlags & (FRI_CMD_CARTSTIFF | FRI_CMD_CARTDAMP))
+                  {
+                    cart_stiffness_(i) = m_cmd_data.cmd.cartStiffness[i];
+                    cart_damping_(i) = m_cmd_data.cmd.cartDamping[i];
+                  }
+                  else
+                  {
+                    cart_stiffness_(i) = user_cart_stiffness_(i);
+                    cart_damping_(i) = user_cart_damping_(i);
+                  }
+                }
+                ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka cart_stiffness_  %f, %f, %f, %f, %f, %f", model_name_.c_str(),  cart_stiffness_(0),
+                  cart_stiffness_(1),cart_stiffness_(2),cart_stiffness_(3),cart_stiffness_(4),cart_stiffness_(5));
+                ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka cart_damping_  %f, %f, %f, %f, %f, %f", model_name_.c_str(), cart_damping_(0),
+                  cart_damping_(1),cart_damping_(2),cart_damping_(3),cart_damping_(4),cart_damping_(5));
+
+                // Start of user code ImpedanceControl
+                // Code from lwr_impedance_controller RCPRG
+                // T is current pose, TD is desired  TC is tool, TS is spring
+                KDL::Frame T_C, T_S;
+                Eigen::Matrix<double, 7, 7> Kj;
+                Eigen::Matrix<double, 6, 1> K0;
+                Eigen::Matrix<double, 7, 7> Mi, N;
+                Eigen::Matrix<double, 6, 1> F;
+                Eigen::Matrix<double, 7, 6> Ji, jT;
+                Eigen::Matrix<double, 7, 1> tau;
+                Eigen::Matrix<double, 4, 1> e;
+                Eigen::Matrix<double, 6, 6> A, A1, Kc1, Dc, Q;
+
+                Eigen::GeneralizedSelfAdjointEigenSolver< Eigen::Matrix<double, 6, 6> > es;
+
+                //if (port_Tool.read(tool_pos) == RTT::NewData) {
+                //  tf::PoseMsgToKDL(tool_pos, T_T);
+                //}
+
+                // compute cartesian position of tool
+                T_C = T;// * T_T;
+
+                // calculate transpose of jacobian
+                jT = jac.data.transpose();
+
+                // calculate inverse of manipulator mass matrix
+                Mi = mass_.inverse();
+                // calculate jacobian pseudo inverse
+                Ji = Mi * jT * (jac.data * Mi * jT).inverse();
+                // calculate null-space projection matrix
+                N = (Eigen::Matrix<double, 7, 7>::Identity() - Ji * jac.data);
+                // calculate cartesian mass matrix
+                A = (jac.data * Mi * jT).inverse();
+
+                // compute damping matrix
+                es.compute(cart_stiffness_.asDiagonal(), A);
+                K0 = es.eigenvalues();
+                Q = es.eigenvectors().inverse();
+
+                Dc = Q.transpose() * cart_damping_.asDiagonal() * K0.cwiseSqrt().asDiagonal() * Q;
+
+                // compute length of spring
+                T_S = T_C.Inverse() * T_D_;
+
+                T_S.M.GetQuaternion(e(0), e(1), e(2), e(3));
+                
+                ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka T_S %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", model_name_.c_str(), T_S.M.data[0],
+                                        T_S.M.data[1], T_S.M.data[2],
+                                        T_S.M.data[3], T_S.M.data[4],
+                                        T_S.M.data[5], T_S.M.data[6],
+                                        T_S.M.data[7], T_S.M.data[8],
+                                        T_S.p.x(), T_S.p.y() , T_S.p.z());
+
+                // calculate spring force
+                F(0) = cart_stiffness_(0) * T_S.p[0];
+                F(1) = cart_stiffness_(1) * T_S.p[1];
+                F(2) = cart_stiffness_(2) * T_S.p[2];
+
+                F(3) = cart_stiffness_(3) * e(0);
+                F(4) = cart_stiffness_(4) * e(1);
+                F(5) = cart_stiffness_(5) * e(2);
+
+                // compute damping force
+                F(0) -= Dc.diagonal()(0) * cart_twist.vel(0);
+                F(1) -= Dc.diagonal()(1) * cart_twist.vel(1);
+                F(2) -= Dc.diagonal()(2) * cart_twist.vel(2);
+
+                F(3) -= Dc.diagonal()(3) * cart_twist.rot(0);
+                F(4) -= Dc.diagonal()(4) * cart_twist.rot(1);
+                F(5) -= Dc.diagonal()(5) * cart_twist.rot(2);
+
+
+                // -------------------------------------------
+                // add external wrench command
+                F += ext_tcp_ft_;
+
+                ROS_DEBUG_THROTTLE_NAMED(0.1, "cart","lwr_control %s:kuka F  %f, %f, %f, %f, %f, %f", model_name_.c_str(), F(0),
+                  F(1),F(2),F(3),F(4),F(5));
+
+                // transform cartesian force to joint torques
+                tau = jT * F;
+                // project stiffness to joint space for local stiffness control
+                Kj = jT * cart_stiffness_.asDiagonal() * jac.data;
+
+                ROS_DEBUG_THROTTLE_NAMED(0.1, "cart","lwr_control %s:kuka cart trq cmd %f, stiffness %f", model_name_.c_str(), tau(0), Kj(0,0));
+                for(unsigned int i = 0; i < LBR_MNJ; i++) {
+                  trq_cmd_(i) = tau(i);
+                  stiffness_(i) = Kj(i, i);
+                  damping_(i) = 0.0;
+                }
+
+
+                // compute the torque
+                trq_ = stiffness_.asDiagonal() * (joint_pos_cmd_ - joint_pos_) - damping_.asDiagonal() * joint_vel_ + trq_cmd_;
+
+
+                for(unsigned int i = 0; i< LBR_MNJ; i++) {
+                  joints_[i]->SetForce(0, trq_(i) + grav(i));
+                }
+                ROS_DEBUG_STREAM_THROTTLE_NAMED(5.0, "krl", "lwr_ctrl " << model_name_ << "cartesian control");
               }
-              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka cart_stiffness_  %f, %f, %f, %f, %f, %f", model_name_.c_str(),  cart_stiffness_(0),
-                cart_stiffness_(1),cart_stiffness_(2),cart_stiffness_(3),cart_stiffness_(4),cart_stiffness_(5));
-              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka cart_damping_  %f, %f, %f, %f, %f, %f", model_name_.c_str(), cart_damping_(0),
-                cart_damping_(1),cart_damping_(2),cart_damping_(3),cart_damping_(4),cart_damping_(5));
-
-              // Start of user code ImpedanceControl
-              // Code from lwr_impedance_controller RCPRG
-              // T is current pose, TD is desired  TC is tool, TS is spring
-              KDL::Frame T_C, T_S;
-              Eigen::Matrix<double, 7, 7> Kj;
-              Eigen::Matrix<double, 6, 1> K0;
-              Eigen::Matrix<double, 7, 7> Mi, N;
-              Eigen::Matrix<double, 6, 1> F;
-              Eigen::Matrix<double, 7, 6> Ji, jT;
-              Eigen::Matrix<double, 7, 1> tau;
-              Eigen::Matrix<double, 4, 1> e;
-              Eigen::Matrix<double, 6, 6> A, A1, Kc1, Dc, Q;
-
-              Eigen::GeneralizedSelfAdjointEigenSolver< Eigen::Matrix<double, 6, 6> > es;
-
-              //if (port_Tool.read(tool_pos) == RTT::NewData) {
-              //  tf::PoseMsgToKDL(tool_pos, T_T);
-              //}
-
-              // compute cartesian position of tool
-              T_C = T;// * T_T;
-
-              // calculate transpose of jacobian
-              jT = jac.data.transpose();
-
-              // calculate inverse of manipulator mass matrix
-              Mi = mass_.inverse();
-              // calculate jacobian pseudo inverse
-              Ji = Mi * jT * (jac.data * Mi * jT).inverse();
-              // calculate null-space projection matrix
-              N = (Eigen::Matrix<double, 7, 7>::Identity() - Ji * jac.data);
-              // calculate cartesian mass matrix
-              A = (jac.data * Mi * jT).inverse();
-
-              // compute damping matrix
-              es.compute(cart_stiffness_.asDiagonal(), A);
-              K0 = es.eigenvalues();
-              Q = es.eigenvectors().inverse();
-
-              Dc = Q.transpose() * cart_damping_.asDiagonal() * K0.cwiseSqrt().asDiagonal() * Q;
-
-              // compute length of spring
-              T_S = T_C.Inverse() * T_D_;
-
-              T_S.M.GetQuaternion(e(0), e(1), e(2), e(3));
-              
-              ROS_DEBUG_THROTTLE_NAMED(0.1,"cart","lwr_ctrl %s:kuka T_S %f, %f , %f, \n%f, %f, %f,\n %f, %f, %f,\n p %f, %f, %f", model_name_.c_str(), T_S.M.data[0],
-                                      T_S.M.data[1], T_S.M.data[2],
-                                      T_S.M.data[3], T_S.M.data[4],
-                                      T_S.M.data[5], T_S.M.data[6],
-                                      T_S.M.data[7], T_S.M.data[8],
-                                      T_S.p.x(), T_S.p.y() , T_S.p.z());
-
-              // calculate spring force
-              F(0) = cart_stiffness_(0) * T_S.p[0];
-              F(1) = cart_stiffness_(1) * T_S.p[1];
-              F(2) = cart_stiffness_(2) * T_S.p[2];
-
-              F(3) = cart_stiffness_(3) * e(0);
-              F(4) = cart_stiffness_(4) * e(1);
-              F(5) = cart_stiffness_(5) * e(2);
-
-              // compute damping force
-              F(0) -= Dc.diagonal()(0) * cart_twist.vel(0);
-              F(1) -= Dc.diagonal()(1) * cart_twist.vel(1);
-              F(2) -= Dc.diagonal()(2) * cart_twist.vel(2);
-
-              F(3) -= Dc.diagonal()(3) * cart_twist.rot(0);
-              F(4) -= Dc.diagonal()(4) * cart_twist.rot(1);
-              F(5) -= Dc.diagonal()(5) * cart_twist.rot(2);
-
-
-              // -------------------------------------------
-              // add external wrench command
-              F += ext_tcp_ft_;
-
-              ROS_DEBUG_THROTTLE_NAMED(0.1, "cart","lwr_control %s:kuka F  %f, %f, %f, %f, %f, %f", model_name_.c_str(), F(0),
-                F(1),F(2),F(3),F(4),F(5));
-
-              // transform cartesian force to joint torques
-              tau = jT * F;
-              // project stiffness to joint space for local stiffness control
-              Kj = jT * cart_stiffness_.asDiagonal() * jac.data;
-
-              ROS_DEBUG_THROTTLE_NAMED(0.1, "cart","lwr_control %s:kuka cart trq cmd %f, stiffness %f", model_name_.c_str(), tau(0), Kj(0,0));
-              for(unsigned int i = 0; i < LBR_MNJ; i++) {
-                trq_cmd_(i) = tau(i);
-                stiffness_(i) = Kj(i, i);
-                damping_(i) = 0.0;
-              }
-
-
-              // compute the torque
-              trq_ = stiffness_.asDiagonal() * (joint_pos_cmd_ - joint_pos_) - damping_.asDiagonal() * joint_vel_ + trq_cmd_;
-
-
-              for(unsigned int i = 0; i< LBR_MNJ; i++) {
-                joints_[i]->SetForce(0, trq_(i) + grav(i));
-              }
-              ROS_DEBUG_STREAM_THROTTLE_NAMED(5.0, "krl", "lwr_ctrl " << model_name_ << "cartesian control");
-              brakes_on_ = false;
             }
             else
             {
@@ -847,7 +863,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
         }
         else
         {
-          Brake(joint_pos_, grav);
+          Freeze(joint_pos_, grav);
         }
 
         // handle datagram validity check
@@ -861,51 +877,52 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
     if(cnt > 0)
       --cnt;
     if(cnt <= 10)
-      Brake(joint_pos_, grav);
+      Freeze(joint_pos_, grav);
   }
 
-  ROS_DEBUG_THROTTLE(0.1, "lwr_ctrl %s :kuka pos cmd %f pos current %f vel curr %f trq_cmd %f trq %f, grav %f", model_name_.c_str(), joint_pos_cmd_(0), joint_pos_(0), joint_vel_(0), trq_cmd_(0), trq_(0), grav(0));
+  ROS_DEBUG_THROTTLE_NAMED(0.1, "joint", "lwr_ctrl %s :kuka pos cmd %f pos current %f vel curr %f trq_cmd %f trq %f, grav %f", model_name_.c_str(), joint_pos_cmd_(0), joint_pos_(0), joint_vel_(0), trq_cmd_(0), trq_(0), grav(0));
 }
 
 bool LWRController::DriveOnCb(std_srvs::Empty::Request  &req,
                               std_srvs::Empty::Response &res)
 {
   drive_on_ = true;
-  ROS_DEBUG("drive on request");
-  m_msr_data.robot.power = 0xFFFF;
+  ROS_DEBUG("%s drive on request", model_name_.c_str());
   return true;
 }
 
 bool LWRController::DriveOffCb(std_srvs::Empty::Request  &req,
                               std_srvs::Empty::Response &res)
 {
-  ROS_DEBUG("drive off request");
+  ROS_DEBUG("%s drive off request", model_name_.c_str());
   // save the current position as brake position;
   for(unsigned int i = 0; i< 7; i++)
   {
-    brake_pos_(i) = joint_pos_(i);
+    freeze_pos_(i) = joint_pos_(i);
   }
   drive_on_ = false;
-  m_msr_data.robot.power = 0x0;
-  m_msr_data.intf.state = FRI_STATE_MON;
+  brakes_on_ = true;
+  freeze_ = true;
+  //m_msr_data.robot.power = 0x0;
+  //m_msr_data.intf.state = FRI_STATE_MON;
   return true;
 }
 
-void LWRController::Brake(Eigen::Matrix<double, 7, 1> &pos, KDL::JntArray &grav)
+void LWRController::Freeze(Eigen::Matrix<double, 7, 1> &pos, KDL::JntArray &grav)
 {
-  if(!brakes_on_)
+  if(!freeze_)
   {
-    ROS_DEBUG("lwr braking");
+    ROS_DEBUG("lwr freeze");
     for(unsigned int i = 0; i< LBR_MNJ; i++) {
-      brake_pos_(i) = pos(i);
+      freeze_pos_(i) = pos(i);
     }
-    brakes_on_ = true;
+    freeze_ = true;
   }
 
-  ROS_DEBUG_STREAM_THROTTLE(5.0,"lwr_ctrl " << model_name_ << "lwr enforcing brake_pos");
+  ROS_DEBUG_STREAM_THROTTLE(5.0,"lwr_ctrl " << model_name_ << " lwr enforcing brake_pos");
   //set the robot at same angles as brake pos
   for(unsigned int i = 0; i< LBR_MNJ; i++) {
-    joints_[i]->SetPosition(0, brake_pos_(i));
+    joints_[i]->SetPosition(0, freeze_pos_(i));
     joints_[i]->SetForce(0, grav(i));  // needed for recovery otherwise forces builds up
     joints_[i]->SetVelocity(0, 0.0);
   }
