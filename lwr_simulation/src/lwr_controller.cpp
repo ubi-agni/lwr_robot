@@ -394,7 +394,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
   fd_set rd;
   struct timeval tv;
   tv.tv_sec = 0;
-  tv.tv_usec = 1000;
+  tv.tv_usec = 333;
 
   FD_ZERO(&rd);
   FD_SET(socketFd, &rd);
