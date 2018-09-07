@@ -380,7 +380,8 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
   else
   {
     m_msr_data.robot.power = 0x0;
-    m_msr_data.intf.state = FRI_STATE_MON;
+    if (!drive_on_)
+      m_msr_data.intf.state = FRI_STATE_MON;
   }
 
   // send msr data to socket
