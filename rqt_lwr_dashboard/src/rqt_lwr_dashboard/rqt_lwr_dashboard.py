@@ -641,7 +641,10 @@ class RqtLwrDashboard(Dashboard):
                 elif power_state == "1111111" and control_state == "command":
                     self._state_buttons[group_name].set_state("command")
                 else:
-                    print "Invalid states power:", power_state, ", control_state:", control_state
+                    if self._last_power_state[group_name] != power_state:
+                        print "Invalid states power:", power_state, ", control_state:", control_state
+                        self._state_buttons[group_name].set_state("disabled")
+                        self._state_buttons[group_name].enable_menu.setChecked(False)
             else:
                 self._state_buttons[group_name].set_state("disabled")
                 self._last_power_state[group_name] = None
