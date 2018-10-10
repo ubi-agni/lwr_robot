@@ -328,7 +328,12 @@ class LwrDashboard(object):
         Should permit releasing brakes
         """
         if self._lwr_drive_on is not None:
-            self._lwr_drive_on()
+            try:
+                self._lwr_drive_on()
+            except rospy.ServiceException, e:
+                rospy.logwarn("Failed to execute the Drive ON/OFF service %s"%e)
+            except rospy.ROSException, e:
+                rospy.logwarn("Other Drive ON/OFF service exception: %s"%e)
         else:
             rospy.logwarn("Drive ON/OFF is not initialized properly")
 
