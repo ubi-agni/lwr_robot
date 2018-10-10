@@ -200,6 +200,7 @@ class RqtLwrDashboard(Dashboard):
         self._lwrdb["left_arm"] = LwrDashboard(namespace="la")
 
         self._main_widget = QWidget()
+        self._main_widget.setWindowTitle("LWR Dashboard")
         vlayout_main = QVBoxLayout()
         hlayout_main = QHBoxLayout()
         # enable
