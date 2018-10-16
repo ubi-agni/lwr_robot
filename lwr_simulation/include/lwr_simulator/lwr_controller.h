@@ -35,6 +35,9 @@
 #include "gazebo/common/Time.hh"
 #include "gazebo/common/Plugin.hh"
 #include "gazebo/common/Events.hh"
+#if GAZEBO_MAJOR_VERSION >= 7
+#include <ignition/math/Vector3.hh>
+#endif
 #include <ros/ros.h>
 #include <std_srvs/Empty.h>
 #include <kdl/chain.hpp>
@@ -131,9 +134,13 @@ namespace gazebo
         std::string chain_start, chain_end;
         
         double payloadMass_;
+#if GAZEBO_MAJOR_VERSION >= 7
+        ignition::math::Vector3d payloadCOG_;
+        ignition::math::Vector3d gravityDirection_;
+#else
         math::Vector3 payloadCOG_;
         math::Vector3 gravityDirection_;
-        
+#endif
          // Pointer to the model
         physics::WorldPtr world;
 

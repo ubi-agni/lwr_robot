@@ -76,13 +76,30 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
 
 
   if (_sdf->HasElement("payloadCOG"))
+#if GAZEBO_MAJOR_VERSION >= 7
+    payloadCOG_ = _sdf->GetElement("payloadCOG")->Get<ignition::math::Vector3d>();
+  else
+    payloadCOG_ = ignition::math::Vector3d(0,0,0);
+#else
+  if (_sdf->HasElement("payloadCOG"))
     payloadCOG_ = _sdf->GetElement("payloadCOG")->Get<math::Vector3>();
   else
     payloadCOG_ = math::Vector3(0,0,0);
+#endif
 
   gzdbg << "payloadCOG : " << payloadCOG_[0] << ", " << payloadCOG_[1] << ", " << payloadCOG_[2] << "\n";
   gzdbg << "payload mass : " << payloadMass_ << "\n";
 
+#if GAZEBO_MAJOR_VERSION >= 7
+  if (_sdf->HasElement("gravityDirection"))
+    gravityDirection_ = _sdf->GetElement("gravityDirection")->Get<ignition::math::Vector3d>();
+  else
+  {
+    ROS_WARN_STREAM("Gravity direction not given to lwrcontroller plugin " << model_name_ << ", using default. \nThis will only work if you robot is standing on the floor !");
+    gravityDirection_ = ignition::math::Vector3d(0,0,-9.81);
+  }
+  gzdbg << "gravity Dir : " << gravityDirection_.X() << ", " << gravityDirection_.Y() << ", " << gravityDirection_.Z() << "\n";
+#else
   if (_sdf->HasElement("gravityDirection"))
     gravityDirection_ = _sdf->GetElement("gravityDirection")->Get<math::Vector3>();
   else
@@ -91,6 +108,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     gravityDirection_ = math::Vector3(0,0,-9.81);
   }
   gzdbg << "gravity Dir : " << gravityDirection_[0] << ", " << gravityDirection_[1] << ", " << gravityDirection_[2] << "\n";
+#endif
   if (!ros::isInitialized())
   {
     int argc = 0;
@@ -155,7 +173,11 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     i_term_(i) = 0.0;
 
     trq_cmd_(i) = LWRSIM_DEFAULT_TRQ_CMD;
+#if GAZEBO_MAJOR_VERSION >= 8
+    joint_pos_cmd_(i) = joints_[i]->Position(0);
+#else
     joint_pos_cmd_(i) = joints_[i]->GetAngle(0).Radian();
+#endif
 
     m_msr_data.data.cmdJntPos[i] = 0.0;
     m_msr_data.data.cmdJntPosFriOffset[i] = 0.0;
@@ -259,7 +281,11 @@ void LWRController::GetRobotChain()
   // the offset is the relative position of the tool com from the last segment cog
   // given in the frame orientation of the last segment.
   // so this offset is valid only for an certain assembly (calib of the tool)
+#if GAZEBO_MAJOR_VERSION >= 7
+  KDL::Vector payload_cog_offset(payloadCOG_.X(), payloadCOG_.Y(), payloadCOG_.Z());
+#else
   KDL::Vector payload_cog_offset(payloadCOG_[0], payloadCOG_[1], payloadCOG_[2]);
+#endif
   double m_combined = m_ee + payloadMass_;
   KDL::Vector cog_offset_combined = (payload_cog_offset - cog_ee) * payloadMass_ / m_combined;
   cog_ee += cog_offset_combined;
@@ -269,8 +295,11 @@ void LWRController::GetRobotChain()
 
   // set the new inertia at the end-effector.
   segment_ee_ptr->setInertia(KDL::RigidBodyInertia(m_combined, cog_ee, rot_inertia_ee));
-
+#if GAZEBO_MAJOR_VERSION >= 7
+  dyn = new KDL::ChainDynParam(chain_, KDL::Vector(gravityDirection_.X(),gravityDirection_.Y(),gravityDirection_.Z()));
+#else
   dyn = new KDL::ChainDynParam(chain_, KDL::Vector(gravityDirection_[0],gravityDirection_[1],gravityDirection_[2]));
+#endif
   fk = new KDL::ChainFkSolverPos_recursive(chain_);
   jc = new KDL::ChainJntToJacSolver(chain_);
 }
@@ -296,7 +325,11 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
   for(unsigned int i = 0; i< LBR_MNJ; i++)
   {
     //joint_pos_prev_(i) = joint_pos_(i);
+#if GAZEBO_MAJOR_VERSION >= 8
+    m_msr_data.data.cmdJntPos[i] = m_msr_data.data.msrJntPos[i] = pos(i) = joint_pos_(i) = joints_[i]->Position(0);
+#else
     m_msr_data.data.cmdJntPos[i] = m_msr_data.data.msrJntPos[i] = pos(i) = joint_pos_(i) = joints_[i]->GetAngle(0).Radian();
+#endif
 
     // filter is worth less here, as the joint_vel is not transmitted to FRI
     //joint_vel_(i) = (joint_pos_(i) - joint_pos_prev_(i))*(0.2/period.Float()) + joint_vel_(i)*0.8 ;
