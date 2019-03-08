@@ -132,6 +132,7 @@ namespace gazebo
         std::string robotPrefix;
         std::vector<gazebo::physics::JointPtr>  joints_;
         std::string chain_start, chain_end;
+        gazebo::physics::LinkPtr eef_link_;
         
         double payloadMass_;
 #if GAZEBO_MAJOR_VERSION >= 7
@@ -159,26 +160,35 @@ namespace gazebo
         bool auto_on_; //!< If true (default) the robot switches on after 10 valid datagrams
         
         
-        Eigen::Matrix<double, 7, 1> joint_pos_;
-        Eigen::Matrix<double, 7, 1> joint_pos_prev_;
-        Eigen::Matrix<double, 7, 1> joint_pos_cmd_;
-        Eigen::Matrix<double, 7, 1> joint_vel_;
-        Eigen::Matrix<double, 7, 1> freeze_pos_;
+        Eigen::Matrix<double, 7, 1> joint_pos_;       // current joint angles
+        Eigen::Matrix<double, 7, 1> joint_pos_prev_;  // previous joint angles
+        Eigen::Matrix<double, 7, 1> joint_pos_cmd_;   // desired joint angle commands
+        Eigen::Matrix<double, 7, 1> joint_vel_;       // current joint velocities
+        Eigen::Matrix<double, 7, 1> joint_trq_;       // current joint torques
+        Eigen::Matrix<double, 7, 1> freeze_pos_;      // stored joint angles when brakes are on
         Eigen::Matrix<double, 7, 1> stiffness_;
-        Eigen::Matrix<double, 7, 1> user_stiffness_; // user default
+        Eigen::Matrix<double, 7, 1> user_stiffness_;  // user default
         Eigen::Matrix<double, 7, 1> damping_;
         Eigen::Matrix<double, 7, 1> i_gain_;
         Eigen::Matrix<double, 7, 1> i_term_;
-        Eigen::Matrix<double, 7, 1> user_damping_; // user default
-        Eigen::Matrix<double, 7, 1> trq_cmd_;
-        Eigen::Matrix<double, 7, 1> trq_;
+        Eigen::Matrix<double, 7, 1> user_damping_;    // user default
+        Eigen::Matrix<double, 7, 1> trq_cmd_;         // user desired joint torques
+        Eigen::Matrix<double, 7, 1> trq_;             // computed torque commands
+        Eigen::Matrix<double, 7, 1> est_ext_jnt_trq_;  // estimated external joint torques
         Eigen::Matrix<double, 7, 7> mass_;
         double i_max_;
         
-        Eigen::Matrix<double, 6, 1> cart_pos_cmd_;
+        Eigen::Matrix<double, 6, 1> cart_pos_cmd_;    // desired cartesian pose command
         KDL::Frame T_old_;
         KDL::Frame T_D_;
-        Eigen::Matrix<double, 6, 1> ext_tcp_ft_;
+        //std::vector<unsigned int> joint_axes_;
+#if GAZEBO_MAJOR_VERSION >= 7
+        std::vector<ignition::math::Vector3d> joint_axes_;
+#else        
+        std::vector<gazebo::math::Vector3> joint_axes_;
+#endif
+        Eigen::Matrix<double, 6, 1> est_ext_tcp_ft_;  // estimated external wrench at tcp
+        Eigen::Matrix<double, 6, 1> ext_tcp_ft_;      // desired external wrench at tcp
         Eigen::Matrix<double, 6, 1> cart_stiffness_;
         Eigen::Matrix<double, 6, 1> user_cart_stiffness_;
         Eigen::Matrix<double, 6, 1> cart_damping_;

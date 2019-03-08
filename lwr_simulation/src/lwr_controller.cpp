@@ -50,6 +50,8 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   remote_port = 7998;
   if (_sdf->HasElement("remotePort"))
     this->remote_port = _sdf->GetElement("remotePort")->Get<double>();
+  remote = "127.0.0.1";
+  gzdbg << "remote : " << remote << " : " << remote_port << "\n";
 
   remote = "127.0.0.1";
   if (_sdf->HasElement("remoteIP"))
@@ -58,12 +60,18 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   chain_start = this->robotPrefix + "_arm_base_link";
   if (_sdf->HasElement("baseLink"))
     this->chain_start = _sdf->GetElement("baseLink")->Get<std::string>();
+  ROS_INFO_STREAM("lwr_ctrl " << model_name_ << " chain_start  " << this->chain_start );
 
   chain_end = this->robotPrefix + "_arm_7_link";
   if (_sdf->HasElement("toolLink"))
     this->chain_end = _sdf->GetElement("toolLink")->Get<std::string>();
-
-  gzdbg << "remote : " << remote << " : " << remote_port << "\n";
+  ROS_INFO_STREAM("lwr_ctrl " << model_name_ << " chain_end  " << this->chain_end );
+  // initialize here a vector storing the hinge axis as read from 
+  
+  // store the eef_link_ for further processing
+  this->eef_link_ = boost::dynamic_pointer_cast<physics::Link>(this->parent_model_->GetLink(chain_end));
+  if (!eef_link_)
+    ROS_WARN_STREAM("lwr_ctrl " << model_name_ << " chain_end  " << this->chain_end << " link was not found");
 
   // get parameter name
   std::string robotNamespace = "";
@@ -89,15 +97,21 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
 
   gzdbg << "payloadCOG : " << payloadCOG_[0] << ", " << payloadCOG_[1] << ", " << payloadCOG_[2] << "\n";
   gzdbg << "payload mass : " << payloadMass_ << "\n";
+  ROS_INFO_STREAM("lwr_ctrl " << model_name_ << ":paylodCOG " << payloadCOG_[0] << ", " << payloadCOG_[1] << ", " << payloadCOG_[2]);
+  ROS_INFO_STREAM("lwr_ctrl " << model_name_ << ":payloadMass_ " << payloadMass_);
 
 #if GAZEBO_MAJOR_VERSION >= 7
   if (_sdf->HasElement("gravityDirection"))
+  {
     gravityDirection_ = _sdf->GetElement("gravityDirection")->Get<ignition::math::Vector3d>();
+    
+  }
   else
   {
     ROS_WARN_STREAM("Gravity direction not given to lwrcontroller plugin " << model_name_ << ", using default. \nThis will only work if you robot is standing on the floor !");
     gravityDirection_ = ignition::math::Vector3d(0,0,-9.81);
   }
+  ROS_WARN_STREAM("Gravity direction " << model_name_ << ": " << gravityDirection_.X() << ", " << gravityDirection_.Y() << ", " << gravityDirection_.Z()  );
   gzdbg << "gravity Dir : " << gravityDirection_.X() << ", " << gravityDirection_.Y() << ", " << gravityDirection_.Z() << "\n";
 #else
   if (_sdf->HasElement("gravityDirection"))
@@ -173,6 +187,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     i_term_(i) = 0.0;
 
     trq_cmd_(i) = LWRSIM_DEFAULT_TRQ_CMD;
+    est_ext_jnt_trq_(i) = 0.0;
 #if GAZEBO_MAJOR_VERSION >= 8
     joint_pos_cmd_(i) = joints_[i]->Position(0);
 #else
@@ -193,6 +208,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   {
     cart_pos_cmd_(i) = 0.0;
     ext_tcp_ft_(i) = 0.0;
+    est_ext_tcp_ft_(i) = 0.0;
     cart_damping_(i) = LWRSIM_DEFAULT_CARTDAMPING;
     user_cart_damping_(i) = LWRSIM_DEFAULT_CARTDAMPING;
     if ( i < 3)
@@ -263,7 +279,22 @@ void LWRController::GetRobotChain()
 
   my_tree.getChain(chain_start, chain_end, chain_);
 
+
   ROS_ASSERT_MSG(chain_.getNrOfSegments()>0,"Chain has no elements");
+
+  // for each joint of the chain, extract the axis (encoded as 0,1,2, for x, y, z) and store it in a vector
+  joint_axes_.clear();
+  for (unsigned int i = 0; i < chain_.getNrOfSegments(); ++i)
+  {
+    KDL::Vector kdl_axis = chain_.getSegment(i).getJoint().JointAxis();
+#if GAZEBO_MAJOR_VERSION >= 7
+    joint_axes_.push_back(ignition::math::Vector3d(kdl_axis[0],kdl_axis[1],kdl_axis[2]));
+#else
+    joint_axes_.push_back(gazebo::math::Vector3(kdl_axis[0],kdl_axis[1],kdl_axis[2]));
+#endif
+  }
+  gzdbg << "initialized joint_axes vector with size " << joint_axes_.size();
+  
   // get last segment
   KDL::Segment *segment_ee_ptr = &(chain_.segments[chain_.getNrOfSegments()-1]);
   // get its dynamic parameters
@@ -316,12 +347,17 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
   KDL::JntArray pos(LBR_MNJ);
   KDL::JntArray grav(LBR_MNJ);
 
+  // for cartesian computations
+  Eigen::Matrix<double, 7, 6> Ji, jT;
+  Eigen::Matrix<double, 6, 7> jTi;
+
   previous_time_ = current_time_;
   current_time_ = update_info.realTime;
   common::Time period = current_time_-previous_time_;
   // store the real period
   m_msr_data.intf.desiredMsrSampleTime=period.Double();
 
+ 
   for(unsigned int i = 0; i< LBR_MNJ; i++)
   {
     //joint_pos_prev_(i) = joint_pos_(i);
@@ -334,11 +370,175 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
     // filter is worth less here, as the joint_vel is not transmitted to FRI
     //joint_vel_(i) = (joint_pos_(i) - joint_pos_prev_(i))*(0.2/period.Float()) + joint_vel_(i)*0.8 ;
     joint_vel_(i) = joints_[i]->GetVelocity(0);
-    // reset torque;
+  }    
+  dyn->JntToGravity(pos, grav);
+
+for(unsigned int i = 0; i< LBR_MNJ; i++)
+  {
+    // get current torques
+    /* IN ODE GetForce retrieves last commanded force, not real torque on the joint !
+     * joint_trq_(i) = m_msr_data.data.msrJntTrq[i] = joints_[i]->GetForce(0);
+     */
+    /* cannot use local axis, as it is given in model frame, which might be tilted, 
+     * and not in joint_frame, so extra computation to reverse the base frame orientation were necessary
+     * additionally, use_parent_model_frame = false, gets "eaten" by the conversion from urdf 
+     * to sdf 1.4 (does not know about use_parent_model_frame) and added to true by conversion from sdf 1.4 to 1.6
+     * gazebo::math::Vector3 jnt_axis = joints_[i]->GetLocalAxis(0);
+     * gazebo::physics::JointWrench jw = joints_[i]->GetForceTorque(0);
+     * gazebo::math::Vector3 torque_around_joint_axis = jw.body2Torque * jnt_axis;
+     */
+
+    // getForceTorque SHOULD already have removed the commanded part, so no need to suppress it, BUT for unknown reason the source code of gazebo does not match values we see.
+    // need to use kdl representation of joint axis which is local to the joint frame
+    joint_trq_(i) = m_msr_data.data.msrJntTrq[i] = joints_[i]->GetForceTorque(0).body2Torque.Dot(joint_axes_[i]);
+
+    // estimated external torques (current torque - commanded torque at previous step)
+    // use the last commanded force at the joint (trq + grav + coriolis)
+    // temporarily store measured=commanded torque as ext torque since the real ext torque does not work yet
+    est_ext_jnt_trq_(i) =  m_msr_data.data.msrJntTrq[i];
+    // est_ext_jnt_trq_(i) = m_msr_data.data.estExtJntTrq[i] = joint_trq_(i) + joints_[i]->GetForce(0);
+
+    // compute force on the last link minus joint force on the last link
+#if GAZEBO_MAJOR_VERSION >= 7
+    ignition::math::Vector3d eef_link_force;
+    ignition::math::Vector3d eef_link_torque;
+    ignition::math::Vector3d eef_joint_force;
+    ignition::math::Vector3d eef_joint_torque;
+    if (i == LBR_MNJ - 1)
+    {
+
+      eef_joint_force = joints_[i]->GetForceTorque(0).body2Force;
+      eef_joint_torque = joints_[i]->GetForceTorque(0).body2Torque;
+      if(eef_link_)
+      {
+ #if GAZEBO_MAJOR_VERSION >= 8
+        eef_link_force = eef_link_->WorldForce();
+        eef_link_torque = eef_link_->WorldTorque();
+ #else
+        eef_link_force = eef_link_->GetWorldForce();
+        eef_link_torque = eef_link_->GetWorldTorque();
+ #endif
+      }
+
+      if (model_name_.find("l_")!=std::string::npos)
+      {
+        ROS_DEBUG_NAMED("eef", "%s: link %s, jnt %d \n eef_link_force: %f, %f, %f, eef_link_torque: %f, %f, %f \neef_joint_force: %f, %f, %f, eef_joint_torque: %f, %f, %f", 
+           model_name_.c_str(), chain_end.c_str(), i, eef_link_force.X(), eef_link_force.Y(), eef_link_force.Z(), eef_link_torque.X(), eef_link_torque.Y(), eef_link_torque.Z(),
+              eef_joint_force.X(), eef_joint_force.Y(), eef_joint_force.Z(),  eef_joint_torque.X(), eef_joint_torque.Y(), eef_joint_torque.Z());
+      }
+#else
+    math::Vector3 eef_link_force;
+    math::Vector3 eef_link_torque;
+    math::Vector3 eef_joint_force;
+    math::Vector3 eef_joint_torque;
+
+    if (i == LBR_MNJ - 1)
+    {
+      eef_joint_force = joints_[i]->GetForceTorque(0).body2Force;
+      eef_joint_torque = joints_[i]->GetForceTorque(0).body2Torque; 
+      if(eef_link_)
+      {
+        eef_link_force = eef_link_->GetWorldForce();
+        eef_link_torque = eef_link_->GetWorldTorque();
+      }
+      if (model_name_.find("l_")!=std::string::npos)
+      {
+        ROS_DEBUG_NAMED("eef", "%s: link %s, jnt %d \n eef_link_force: %f, %f, %f, eef_link_torque: %f, %f, %f \neef_joint_force: %f, %f, %f, eef_joint_torque: %f, %f, %f", 
+           model_name_.c_str(), chain_end.c_str(), i, eef_link_force.x, eef_link_force.y, eef_link_force.z, eef_link_torque.x, eef_link_torque.y, eef_link_torque.z,
+              eef_joint_force.x, eef_joint_force.y, eef_joint_force.z,  eef_joint_torque.x, eef_joint_torque.y, eef_joint_torque.z);
+      }
+#endif
+    }
+    if (model_name_.find("l_")!=std::string::npos && i==6)
+    {
+      ROS_DEBUG_NAMED("trq", "%s:jnt %d pos %f body_trq: %f, est_ext_trq: %f, get_force_trq: %f, motion_trq: %f, grav: %f", model_name_.c_str(), i, joint_pos_(i), joint_trq_(i), est_ext_jnt_trq_(i), joints_[i]->GetForce(0), trq_(i), grav(i));
+    }
+    // reset output torques;
     trq_(i) = 0;
   }
+  /*
+  gazebo::physics::ODEJointFeedback::dJointFeedback *fb = joints_[3]->GetFeedback();
+ if (fb)
+  {
+    gazebo::math::Vector3 fb_force(fb->f1[0], fb->f1[1], fb->f1[2]);
+    gazebo::math::Vector3 fb_torque(fb->t1[0], fb->t1[1], fb->t1[2]);
+    gazebo::math::Vector3 torque_applied_world  = joints_[3]->GetForce(0) * joints_[3]->GetLocalAxis(0);
+    
+    gazebo::math::Pose childPose = joints_[3]->childLink->GetWorldPose();
+    
+    gazebo::math::Pose cgPose;
+    auto inertial = joints_[3]->childLink->GetInertial();
+    if (inertial)
+      cgPose = inertial->GetPose();
 
-  dyn->JntToGravity(pos, grav);
+    gazebo::math::Vector3 childMomentArm = childPose.rot.RotateVector(
+        (joints_[3]->GetAnchor(0) - gazebo::math::Pose(cgPose.pos, gazebo::math::Quaternion())).pos);
+
+    gazebo::math::Vector3 mass_gen_torque = fb_force.Cross(childMomentArm);
+    mass_gen_torque = childPose.rot.RotateVectorReverse(-mass_gen_torque);
+    gazebo::math::Vector3 final_torque =  fb_torque - torque_applied_world;
+
+    gazebo::physics::JointWrench jw = joints_[3]->GetForceTorque(0);
+    gazebo::math::Vector3 jnt_axis = joints_[3]->GetLocalAxis(0);
+    gazebo::math::Vector3 jnt_world_axis = joints_[3]->GetGlobalAxis(0);
+
+    if (model_name_.find("left")!=std::string::npos)
+    {
+      ROS_DEBUG_THROTTLE_NAMED(0.1, "bodyFT", "fx %f, fy: %f, fz: %f, tx %f, ty: %f, tz: %f\n \
+       child pose.x: %f, child pose.y: %f, child pose.z: %f, \
+       cgPose.x: %f, cgPose.y: %f, cgPose.z: %f \n \
+       childMomentArm.x: %f, childMomentArm.y: %f, childMomentArm.z: %f, \
+       mass_gen_torque.x: %f, mass_gen_torque.y: %f, mass_gen_torque.z: %f\n \
+       final_torque.x: %f, final_torque.y: %f, final_torque.z: %f",
+      fb_force.x, fb_force.y, fb_force.z, 
+      fb_torque.x, fb_torque.y, fb_torque.z,
+      childPose.x, childPose.y, childPose.z, 
+      cgPose.x, cgPose.y, cgPose.z, 
+      childMomentArm.x, childMomentArm.y, childMomentArm.z, 
+      mass_gen_torque.x, mass_gen_torque.y, mass_gen_torque.z,
+      final_torque.x, final_torque.y,final_torque.z,
+    }
+  }
+    */
+    
+    gazebo::physics::JointWrench jw = joints_[6]->GetForceTorque(0);
+#if GAZEBO_MAJOR_VERSION >= 7
+ #if GAZEBO_MAJOR_VERSION >= 8
+    ignition::math::Vector3d jnt_axis = joints_[6]->LocalAxis(0);
+    ignition::math::Vector3d jnt_world_axis = joints_[6]->GlobalAxis(0);
+ #else
+    ignition::math::Vector3d jnt_axis = joints_[6]->GetLocalAxis(0);
+    ignition::math::Vector3d jnt_world_axis = joints_[6]->GetGlobalAxis(0);
+ #endif
+    if (model_name_.find("l_")!=std::string::npos)
+    {
+      ROS_DEBUG_NAMED("bodytrq", "lwr_ctrl %s:kuka %d: body2jntrq.x: %f, body2jntrq.y: %f, body2jntrq.z: %f \
+      body1jntrq.x: %f, body1jntrq.y: %f, body1jntrq.z: %f\n,\
+      jnt_axis.x: %f, jnt_axis.y: %f ,jnt_axis.z: %f,jnt_world_axis.x: %f, jnt_world_axis.y: %f ,jnt_world_axis.z: %f",
+          model_name_.c_str(), 6, jw.body2Torque.X(), jw.body2Torque.Y(), jw.body2Torque.Z(),  
+          jw.body1Torque.X(), jw.body1Torque.Y(), jw.body1Torque.Z(),
+          jnt_axis.X(), jnt_axis.Y(), jnt_axis.Z(),
+          jnt_world_axis.X(), jnt_world_axis.Y(), jnt_world_axis.Z()
+          );
+    }
+#else
+    gazebo::math::Vector3 jnt_axis = joints_[6]->GetLocalAxis(0);
+    gazebo::math::Vector3 jnt_world_axis = joints_[6]->GetGlobalAxis(0);
+    if (model_name_.find("l_")!=std::string::npos)
+    {
+      ROS_DEBUG_NAMED("bodytrq", "lwr_ctrl %s:kuka %d: body2jntrq.x: %f, body2jntrq.y: %f, body2jntrq.z: %f \
+      body1jntrq.x: %f, body1jntrq.y: %f, body1jntrq.z: %f\n,\
+      jnt_axis.x: %f, jnt_axis.y: %f ,jnt_axis.z: %f,jnt_world_axis.x: %f, jnt_world_axis.y: %f ,jnt_world_axis.z: %f",
+          model_name_.c_str(), 6, jw.body2Torque.x, jw.body2Torque.y, jw.body2Torque.z,  
+          jw.body1Torque.x, jw.body1Torque.y, jw.body1Torque.z,
+          jnt_axis.x, jnt_axis.y, jnt_axis.z,
+          jnt_world_axis.x, jnt_world_axis.y, jnt_world_axis.z
+          );
+    }
+#endif
+  
+
+
   for(unsigned int i = 0; i< LBR_MNJ; i++)
   {
     m_msr_data.data.gravity[i]=grav(i);
@@ -376,6 +576,25 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
       mass_(i,j) = H.data(i, j);
     }
   }
+
+  // compute the external force/torque estimated at the end-effector
+  //  calculate the transpose of jacobian
+  jT = jac.data.transpose();
+  //  calculate the jacobian transpose pseudo inverse
+  jTi = (jac.data * jT).inverse() * jac.data;
+  //  derive estimated ext wrench at tip from est_ext_jnt_trq
+  est_ext_tcp_ft_ = jTi * est_ext_jnt_trq_;
+  //  Kuka uses Fx, Fy, Fz, Tz, Ty, Tx convention, so we need to swap Tz and Tx
+  double tmp = est_ext_tcp_ft_(5);
+  est_ext_tcp_ft_(5) = est_ext_tcp_ft_(3);
+  est_ext_tcp_ft_(3) = tmp; 
+  // publish it to FRI
+  for(unsigned int i = 0; i< 6; i++)
+  {
+    m_msr_data.data.estExtTcpFT[i] = est_ext_tcp_ft_(i);
+  }
+  
+
 
   if (cnt <= 10)
   {
@@ -692,7 +911,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
               // compute the torque
               trq_ = stiffness_.asDiagonal() * (joint_pos_cmd_ - joint_pos_) - damping_.asDiagonal() * joint_vel_ + i_gain_.asDiagonal() * i_term_ + trq_cmd_;
               
-              ROS_DEBUG_STREAM_THROTTLE_NAMED(0.1, "joint", "i_term(0) " << i_term_(0) << " i_gain(0) " << i_gain_(0) << " trq(0) " << trq_(0));
+              ROS_DEBUG_STREAM_THROTTLE_NAMED(0.1, "joint", "lwr_ctrl " << model_name_ << " i_term(0) " << i_term_(0) << " i_gain(0) " << i_gain_(0) << " trq(0) no comp " << trq_(0));
 
               // add gravity compensation
               for(unsigned int i = 0; i< LBR_MNJ; i++) {
@@ -792,7 +1011,6 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
                 Eigen::Matrix<double, 6, 1> K0;
                 Eigen::Matrix<double, 7, 7> Mi, N;
                 Eigen::Matrix<double, 6, 1> F;
-                Eigen::Matrix<double, 7, 6> Ji, jT;
                 Eigen::Matrix<double, 7, 1> tau;
                 Eigen::Matrix<double, 4, 1> e;
                 Eigen::Matrix<double, 6, 6> A, A1, Kc1, Dc, Q;
@@ -805,9 +1023,6 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 
                 // compute cartesian position of tool
                 T_C = T;// * T_T;
-
-                // calculate transpose of jacobian
-                jT = jac.data.transpose();
 
                 // calculate inverse of manipulator mass matrix
                 Mi = mass_.inverse();
@@ -913,8 +1128,10 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
     if(cnt <= 10)
       Freeze(joint_pos_, grav);
   }
-
-  ROS_DEBUG_THROTTLE_NAMED(0.1, "joint", "lwr_ctrl %s :kuka pos cmd %f pos current %f vel curr %f trq_cmd %f trq %f, grav %f", model_name_.c_str(), joint_pos_cmd_(0), joint_pos_(0), joint_vel_(0), trq_cmd_(0), trq_(0), grav(0));
+if (model_name_.find("l_")!=std::string::npos)
+  {
+  ROS_DEBUG_THROTTLE_NAMED(0.1, "joint", "lwr_ctrl %s :kuka pos cmd %f pos current %f vel curr %f trq_cmd %f trq %f, grav %f", model_name_.c_str(), joint_pos_cmd_(3), joint_pos_(3), joint_vel_(3), trq_cmd_(3), trq_(3), grav(3));
+}
 }
 
 bool LWRController::DriveOnCb(std_srvs::Empty::Request  &req,
