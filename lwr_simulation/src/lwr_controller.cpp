@@ -345,7 +345,9 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
   KDL::Jacobian jac(LBR_MNJ);
   KDL::JntSpaceInertiaMatrix H(LBR_MNJ);
   KDL::JntArray pos(LBR_MNJ);
+  KDL::JntArray vel(LBR_MNJ);
   KDL::JntArray grav(LBR_MNJ);
+  KDL::JntArray coriolis(LBR_MNJ);
 
   // for cartesian computations
   Eigen::Matrix<double, 7, 6> Ji, jT;
@@ -369,7 +371,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 
     // filter is worth less here, as the joint_vel is not transmitted to FRI
     //joint_vel_(i) = (joint_pos_(i) - joint_pos_prev_(i))*(0.2/period.Float()) + joint_vel_(i)*0.8 ;
-    joint_vel_(i) = joints_[i]->GetVelocity(0);
+    joint_vel_(i) = vel(i) = joints_[i]->GetVelocity(0);
   }    
   dyn->JntToGravity(pos, grav);
 
@@ -543,6 +545,8 @@ for(unsigned int i = 0; i< LBR_MNJ; i++)
   {
     m_msr_data.data.gravity[i]=grav(i);
   }
+
+  dyn->JntToCoriolis(pos,vel,coriolis);
 
   fk->JntToCart(pos, T);
   m_msr_data.data.msrCartPos[0] = T.M.data[0];
@@ -913,9 +917,9 @@ for(unsigned int i = 0; i< LBR_MNJ; i++)
               
               ROS_DEBUG_STREAM_THROTTLE_NAMED(0.1, "joint", "lwr_ctrl " << model_name_ << " i_term(0) " << i_term_(0) << " i_gain(0) " << i_gain_(0) << " trq(0) no comp " << trq_(0));
 
-              // add gravity compensation
+              // add gravity and coriolis compensation
               for(unsigned int i = 0; i< LBR_MNJ; i++) {
-                joints_[i]->SetForce(0, trq_(i) + grav(i));
+                joints_[i]->SetForce(0, trq_(i) + grav(i) + coriolis(i));
               }
               ROS_DEBUG_STREAM_THROTTLE_NAMED(5.0, "krl", "lwr_ctrl " << model_name_ << ":joint control");
             }
@@ -1096,7 +1100,7 @@ for(unsigned int i = 0; i< LBR_MNJ; i++)
 
 
                 for(unsigned int i = 0; i< LBR_MNJ; i++) {
-                  joints_[i]->SetForce(0, trq_(i) + grav(i));
+                  joints_[i]->SetForce(0, trq_(i) + grav(i) + coriolis(i));
                 }
                 ROS_DEBUG_STREAM_THROTTLE_NAMED(5.0, "krl", "lwr_ctrl " << model_name_ << "cartesian control");
               }
@@ -1106,7 +1110,9 @@ for(unsigned int i = 0; i< LBR_MNJ; i++)
               ROS_DEBUG_STREAM_THROTTLE_NAMED(5.0, "krl", "lwr_ctrl " << model_name_ << "other control");
               // just set gravity compensation
               for(unsigned int i = 0; i< LBR_MNJ; i++)
-                joints_[i]->SetForce(0, grav(i));
+              {
+                joints_[i]->SetForce(0, grav(i) + coriolis(i));
+              }
             }
           }
         }
