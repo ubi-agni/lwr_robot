@@ -53,7 +53,6 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   remote = "127.0.0.1";
   gzdbg << "remote : " << remote << " : " << remote_port << "\n";
 
-  remote = "127.0.0.1";
   if (_sdf->HasElement("remoteIP"))
     this->remote = _sdf->GetElement("remoteIP")->Get<std::string>();
 
@@ -374,6 +373,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
     joint_vel_(i) = vel(i) = joints_[i]->GetVelocity(0);
   }    
   dyn->JntToGravity(pos, grav);
+  dyn->JntToCoriolis(pos,vel,coriolis);
 
 for(unsigned int i = 0; i< LBR_MNJ; i++)
   {
@@ -453,7 +453,7 @@ for(unsigned int i = 0; i< LBR_MNJ; i++)
     }
     if (model_name_.find("l_")!=std::string::npos && i==6)
     {
-      ROS_DEBUG_NAMED("trq", "%s:jnt %d pos %f body_trq: %f, est_ext_trq: %f, get_force_trq: %f, motion_trq: %f, grav: %f", model_name_.c_str(), i, joint_pos_(i), joint_trq_(i), est_ext_jnt_trq_(i), joints_[i]->GetForce(0), trq_(i), grav(i));
+      ROS_DEBUG_NAMED("trq", "%s:jnt %d pos %f body_trq: %f, est_ext_trq: %f, get_force_trq: %f, motion_trq: %f, grav: %f, corio: %f", model_name_.c_str(), i, joint_pos_(i), joint_trq_(i), est_ext_jnt_trq_(i), joints_[i]->GetForce(0), trq_(i), grav(i), coriolis(i));
     }
     // reset output torques;
     trq_(i) = 0;
@@ -546,7 +546,6 @@ for(unsigned int i = 0; i< LBR_MNJ; i++)
     m_msr_data.data.gravity[i]=grav(i);
   }
 
-  dyn->JntToCoriolis(pos,vel,coriolis);
 
   fk->JntToCart(pos, T);
   m_msr_data.data.msrCartPos[0] = T.M.data[0];
@@ -1136,7 +1135,7 @@ for(unsigned int i = 0; i< LBR_MNJ; i++)
   }
 if (model_name_.find("l_")!=std::string::npos)
   {
-  ROS_DEBUG_THROTTLE_NAMED(0.1, "joint", "lwr_ctrl %s :kuka pos cmd %f pos current %f vel curr %f trq_cmd %f trq %f, grav %f", model_name_.c_str(), joint_pos_cmd_(3), joint_pos_(3), joint_vel_(3), trq_cmd_(3), trq_(3), grav(3));
+  ROS_DEBUG_THROTTLE_NAMED(0.1, "joint", "lwr_ctrl %s :kuka pos cmd %f pos current %f vel curr %f trq_cmd %f trq %f, grav %f corio %f", model_name_.c_str(), joint_pos_cmd_(3), joint_pos_(3), joint_vel_(3), trq_cmd_(3), trq_(3), grav(3), coriolis(3));
 }
 }
 
