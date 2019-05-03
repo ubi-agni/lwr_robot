@@ -67,7 +67,6 @@
       <child link="${name}arm_1_link"/>
     </joint>
     <gazebo reference="${name}arm_0_joint">
-      <use_parent_model_frame>0</use_parent_model_frame>
       <provideFeedback>1</provideFeedback>
       <implicitSpringDamper>1</implicitSpringDamper>
     </gazebo>
@@ -121,7 +120,6 @@
       <child link="${name}arm_2_link"/>
     </joint>
     <gazebo reference="${name}arm_1_joint">
-      <use_parent_model_frame>0</use_parent_model_frame>
       <provideFeedback>1</provideFeedback>
       <implicitSpringDamper>1</implicitSpringDamper>
     </gazebo>
@@ -176,7 +174,6 @@
       <child link="${name}arm_3_link"/>
     </joint>
     <gazebo reference="${name}arm_2_joint">
-      <use_parent_model_frame>0</use_parent_model_frame>
       <provideFeedback>1</provideFeedback>
       <implicitSpringDamper>1</implicitSpringDamper>
     </gazebo>
@@ -231,7 +228,6 @@
       <child link="${name}arm_4_link"/>
     </joint>
     <gazebo reference="${name}arm_3_joint">
-      <use_parent_model_frame>0</use_parent_model_frame>
       <provideFeedback>1</provideFeedback>
       <implicitSpringDamper>1</implicitSpringDamper>
     </gazebo>
@@ -286,7 +282,6 @@
       <child link="${name}arm_5_link"/>
     </joint>
     <gazebo reference="${name}arm_4_joint">
-      <use_parent_model_frame>0</use_parent_model_frame>
       <provideFeedback>1</provideFeedback>
       <implicitSpringDamper>1</implicitSpringDamper>
     </gazebo>
@@ -341,7 +336,6 @@
       <child link="${name}arm_6_link"/>
     </joint>
     <gazebo reference="${name}arm_5_joint">
-      <use_parent_model_frame>0</use_parent_model_frame>
       <provideFeedback>1</provideFeedback>
       <implicitSpringDamper>1</implicitSpringDamper>
     </gazebo>
@@ -396,7 +390,6 @@
       <child link="${name}arm_7_link"/>
     </joint>
     <gazebo reference="${name}arm_6_joint">
-      <use_parent_model_frame>0</use_parent_model_frame>
       <provideFeedback>1</provideFeedback>
       <implicitSpringDamper>1</implicitSpringDamper>
     </gazebo>
