@@ -40,6 +40,7 @@
 #endif
 #include <ros/ros.h>
 #include <std_srvs/Empty.h>
+#include <lwr_simulation/setPayload.h>
 #include <kdl/chain.hpp>
 #include <kdl/chaindynparam.hpp>
 #include <kdl/chainfksolverpos_recursive.hpp>
@@ -110,22 +111,31 @@ namespace gazebo
       
       private:
       
+        void initSolvers();
         bool DriveOnCb(std_srvs::Empty::Request  &req,
                               std_srvs::Empty::Response &res);
         bool DriveOffCb(std_srvs::Empty::Request  &req,
+                              std_srvs::Empty::Response &res);
+        bool SetPayloadCb(lwr_simulation::setPayload::Request  &req,
+                              lwr_simulation::setPayload::Response &res);
+        bool ResetPayloadCb(std_srvs::Empty::Request  &req,
                               std_srvs::Empty::Response &res);
                               
         void Freeze(Eigen::Matrix<double, 7, 1> &pos, KDL::JntArray &grav);
         bool brakes_on_;
         bool freeze_;
+        bool valid_chain_;
                               
         bool isValidRotation(KDL::Rotation &rot);
+        void changePayload(const double m, const double cog_x, const double cog_y, const double cog_z, bool init=false);
         /*
          *  \brief pointer to ros node
          */
         ros::NodeHandle* rosnode_;
         ros::ServiceServer drive_on_srv_;
         ros::ServiceServer drive_off_srv_;
+        ros::ServiceServer set_payload_srv_;
+        ros::ServiceServer reset_payload_srv_;
         
         std::string model_name_;
         gazebo::physics::ModelPtr parent_model_;
@@ -135,6 +145,8 @@ namespace gazebo
         gazebo::physics::LinkPtr eef_link_;
         
         double payloadMass_;
+        double eeMass_;
+        KDL::Vector eeCOG_;
 #if GAZEBO_MAJOR_VERSION >= 7
         ignition::math::Vector3d payloadCOG_;
         ignition::math::Vector3d gravityDirection_;

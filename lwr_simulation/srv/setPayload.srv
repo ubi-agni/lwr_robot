@@ -1,0 +1,5 @@
+float64 payload_mass
+geometry_msgs/Vector3 payload_cog
+---
+bool success
+string message
