@@ -39,13 +39,13 @@ public:
 
 	
 
-    this->ports()->addEventPort("JointPosition", port_JointPosition, boost::bind(&CartesianImpedance::JointPosition_onData, this, _1)).doc("");
-    this->ports()->addEventPort("CartesianPosition", port_CartesianPosition, boost::bind(&CartesianImpedance::CartesianPosition_onData, this, _1)).doc("");
-    this->ports()->addEventPort("Jacobian", port_Jacobian, boost::bind(&CartesianImpedance::Jacobian_onData, this, _1)).doc("");
-    this->ports()->addEventPort("MassMatrix", port_MassMatrix, boost::bind(&CartesianImpedance::MassMatrix_onData, this, _1)).doc("");
-    this->ports()->addEventPort("CartesianPositionCommand", port_CartesianPositionCommand, boost::bind(&CartesianImpedance::CartesianPositionCommand_onData, this, _1)).doc("");
-    this->ports()->addEventPort("CartesianWrenchCommand", port_CartesianWrenchCommand, boost::bind(&CartesianImpedance::CartesianWrenchCommand_onData, this, _1)).doc("");
-    this->ports()->addEventPort("CartesianImpedanceCommand", port_CartesianImpedanceCommand, boost::bind(&CartesianImpedance::CartesianImpedanceCommand_onData, this, _1)).doc("");
+    this->ports()->addEventPort("JointPosition", port_JointPosition, boost::bind(&CartesianImpedance::JointPosition_onData, this, _1)).doc("eventport");
+    this->ports()->addEventPort("CartesianPosition", port_CartesianPosition, boost::bind(&CartesianImpedance::CartesianPosition_onData, this, _1)).doc("eventport");
+    this->ports()->addEventPort("Jacobian", port_Jacobian, boost::bind(&CartesianImpedance::Jacobian_onData, this, _1)).doc("eventport");
+    this->ports()->addEventPort("MassMatrix", port_MassMatrix, boost::bind(&CartesianImpedance::MassMatrix_onData, this, _1)).doc("eventport");
+    this->ports()->addEventPort("CartesianPositionCommand", port_CartesianPositionCommand, boost::bind(&CartesianImpedance::CartesianPositionCommand_onData, this, _1)).doc("eventport");
+    this->ports()->addEventPort("CartesianWrenchCommand", port_CartesianWrenchCommand, boost::bind(&CartesianImpedance::CartesianWrenchCommand_onData, this, _1)).doc("eventport");
+    this->ports()->addEventPort("CartesianImpedanceCommand", port_CartesianImpedanceCommand, boost::bind(&CartesianImpedance::CartesianImpedanceCommand_onData, this, _1)).doc("eventport");
     this->ports()->addPort("Tool", port_Tool).doc("");
     this->ports()->addPort("CartesianVelocity", port_CartesianVelocity).doc("");
 

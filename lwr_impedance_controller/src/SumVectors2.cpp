@@ -15,8 +15,8 @@ public:
 
 	
 
-    this->ports()->addEventPort("Input2", port_Input2, boost::bind(&SumVectors2::Input2_onData, this, _1)).doc("");
-    this->ports()->addEventPort("Input1", port_Input1, boost::bind(&SumVectors2::Input1_onData, this, _1)).doc("");
+    this->ports()->addEventPort("Input2", port_Input2, boost::bind(&SumVectors2::Input2_onData, this, _1)).doc("eventport");
+    this->ports()->addEventPort("Input1", port_Input1, boost::bind(&SumVectors2::Input1_onData, this, _1)).doc("eventport");
 
     this->ports()->addPort("Output", port_Output).doc("");
   }

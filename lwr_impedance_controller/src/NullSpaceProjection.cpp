@@ -23,9 +23,9 @@ public:
 
 	
 
-    this->ports()->addEventPort("Jacobian", port_Jacobian, boost::bind(&NullSpaceProjection::Jacobian_onData, this, _1)).doc("");
-    this->ports()->addEventPort("MassMatrix", port_MassMatrix, boost::bind(&NullSpaceProjection::MassMatrix_onData, this, _1)).doc("");
-    this->ports()->addEventPort("NullSpaceTorque", port_NullSpaceTorque, boost::bind(&NullSpaceProjection::NullSpaceTorque_onData, this, _1)).doc("");
+    this->ports()->addEventPort("Jacobian", port_Jacobian, boost::bind(&NullSpaceProjection::Jacobian_onData, this, _1)).doc("eventport");
+    this->ports()->addEventPort("MassMatrix", port_MassMatrix, boost::bind(&NullSpaceProjection::MassMatrix_onData, this, _1)).doc("eventport");
+    this->ports()->addEventPort("NullSpaceTorque", port_NullSpaceTorque, boost::bind(&NullSpaceProjection::NullSpaceTorque_onData, this, _1)).doc("eventport");
 
     this->ports()->addPort("JointTorqueCommand", port_JointTorqueCommand).doc("");
   }

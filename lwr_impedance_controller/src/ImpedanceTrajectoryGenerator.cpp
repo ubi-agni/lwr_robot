@@ -21,8 +21,8 @@ public:
 
 	
 
-    this->ports()->addEventPort("CartesianPosition", port_CartesianPosition, boost::bind(&ImpedanceTrajectoryGenerator::CartesianPosition_onData, this, _1)).doc("");
-    this->ports()->addEventPort("ImpedanceTrajectory", port_ImpedanceTrajectory, boost::bind(&ImpedanceTrajectoryGenerator::ImpedanceTrajectory_onData, this, _1)).doc("");
+    this->ports()->addEventPort("CartesianPosition", port_CartesianPosition, boost::bind(&ImpedanceTrajectoryGenerator::CartesianPosition_onData, this, _1)).doc("eventport");
+    this->ports()->addEventPort("ImpedanceTrajectory", port_ImpedanceTrajectory, boost::bind(&ImpedanceTrajectoryGenerator::ImpedanceTrajectory_onData, this, _1)).doc("eventport");
 
     this->ports()->addPort("CartesianPositionCommand", port_CartesianPositionCommand).doc("");
     this->ports()->addPort("CartesianWrenchCommand", port_CartesianWrenchCommand).doc("");

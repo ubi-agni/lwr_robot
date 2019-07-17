@@ -14,7 +14,7 @@ public:
 
 	
 
-    this->ports()->addEventPort("JointPosition", port_JointPosition, boost::bind(&JointLimitsAvoidance::JointPosition_onData, this, _1)).doc("");
+    this->ports()->addEventPort("JointPosition", port_JointPosition, boost::bind(&JointLimitsAvoidance::JointPosition_onData, this, _1)).doc("eventport");
 
     this->ports()->addPort("JointTorqueCommand", port_JointTorqueCommand).doc("");
   }

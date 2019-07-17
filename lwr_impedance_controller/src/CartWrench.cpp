@@ -21,7 +21,7 @@ CartWrench::CartWrench(const std::string& name) : TaskContext(name, PreOperation
   this->addPort("DesiredCartesianPosition", port_desired_cartesian_position);
   this->addPort("ToolFrame", port_tool_frame);
 
-  this->addEventPort("CommandPeriod", port_command_period);
+  this->addEventPort("CommandPeriod", port_command_period).doc("eventport");
 
   // meansurment inputs
   this->addPort("Jacobian", port_jacobian);
