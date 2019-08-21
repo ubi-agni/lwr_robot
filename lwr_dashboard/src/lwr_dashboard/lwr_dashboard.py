@@ -327,22 +327,31 @@ class LwrDashboard(object):
         Enable lwr motor drives (DRIVE ON)
         Should permit releasing brakes
         """
+        ret = False
         if self._lwr_drive_on is not None:
             try:
-                self._lwr_drive_on()
+                ret = self._lwr_drive_on()
             except rospy.ServiceException, e:
                 rospy.logwarn("Failed to execute the Drive ON/OFF service %s"%e)
             except rospy.ROSException, e:
                 rospy.logwarn("Other Drive ON/OFF service exception: %s"%e)
         else:
             rospy.logwarn("Drive ON/OFF is not initialized properly")
+        return ret
 
     def disable_motors(self):
         """
         Disable lwr motor drives (DRIVE OFF)
         Should brake
         """
+        ret = False
         if self._lwr_drive_off is not None:
-            self._lwr_drive_off()
+            try:
+                ret = self._lwr_drive_off()
+            except rospy.ServiceException, e:
+                rospy.logwarn("Failed to execute the Drive ON/OFF service %s"%e)
+            except rospy.ROSException, e:
+                rospy.logwarn("Other Drive ON/OFF service exception: %s"%e)
         else:
             rospy.logwarn("Drive ON/OFF is not initialized properly")
+        return ret
