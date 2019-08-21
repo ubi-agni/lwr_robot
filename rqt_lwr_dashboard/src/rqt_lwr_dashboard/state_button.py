@@ -70,13 +70,16 @@ class ControlStateButton(MenuDashWidget):
             state_icon = 'ic-breaker.svg'
 
         command_icon = ['bg-red.svg', state_icon]
-        monitor_on_icon = ['bg-yellow.svg', state_icon]
-        monitor_off_icon = ['bg-green.svg', state_icon]
+        monitor_icon = ['bg-yellow.svg', state_icon]
+        ready_icon = ['bg-green.svg', state_icon]
+        standby_icon = ['bg-blue.svg', state_icon]
+        lestop_icon = ['bg-blue.svg', state_icon, 'ol-lestop-badge.svg']
+        gestop_icon = ['bg-blue.svg', state_icon, 'ol-gestop-badge.svg']
         error_icon = ['bg-grey.svg', state_icon, 'ol-err-badge.svg']
         disabled_icon = ['bg-light_grey.svg', state_icon]
 
-        icons = [disabled_icon, error_icon, monitor_off_icon, monitor_on_icon, command_icon]
-        self._state_dict = {"disabled": 0, "error": 1, "monitor_off": 2, "monitor_on": 3, "command": 4}
+        icons = [disabled_icon, error_icon, gestop_icon, lestop_icon, standby_icon, ready_icon, monitor_icon, command_icon]
+        self._state_dict = {"disabled": 0, "ERROR": 1, "GLOBAL ESTOP", 2: "LOCAL ESTOP", 3: "STANDBY", 4: "READY": 5, "MONITOR": 6, "COMMAND": 7}
 
         super(ControlStateButton, self).__init__('State:' + group_name, icons=icons, icon_paths=[['rqt_lwr_dashboard', 'images']])
 
@@ -87,8 +90,8 @@ class ControlStateButton(MenuDashWidget):
 
         self.add_action('Command', functools.partial(self._parent.on_btn_command_mode_clicked, group_name=self._name))
         self.add_action('Monitor', functools.partial(self._parent.on_btn_monitor_mode_clicked, group_name=self._name))
-        self.add_action('Drive On', functools.partial(self._parent.on_btn_drive_on_clicked, group_name=self._name))
-        self.add_action('Drive Off', functools.partial(self._parent.on_btn_drive_off_clicked, group_name=self._name))
+        self.add_action('Ready', functools.partial(self._parent.on_btn_drive_on_clicked, group_name=self._name))
+        self.add_action('Standby', functools.partial(self._parent.on_btn_drive_off_clicked, group_name=self._name))
         self.add_action('Home', functools.partial(self._parent.on_btn_home_clicked, group_name=self._name))
         self.add_action('Park', functools.partial(self._parent.on_btn_park_clicked, group_name=self._name))
 
@@ -142,8 +145,8 @@ class ControlStateButton(MenuDashWidget):
         """
         Sets state of button based on msg
 
-        :param msg: message containing the M3 control state
-        :type msg: m3meka_msgs.msg.M3ControlStates
+        :param msg: message containing the lwr control state
+        :type msg: 
         """
 
         if (self.enable_menu.isChecked() or self._state is None):

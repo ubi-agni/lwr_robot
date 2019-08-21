@@ -178,22 +178,9 @@ class RqtLwrDashboard(Dashboard):
         self._last_dashboard_message_time = rospy.Time.now()
         self._state_buttons = {}
         self._widget_initialized = False
-        self._last_error = {}
-        self._last_power_state = {}
-        self._last_control_state = {}
-        self._last_control_strategy = {}
 
         # TODO read this list on the parameters
         group_names = ["left_arm", "right_arm"]
-
-        self._last_error["left_arm"] = None
-        self._last_power_state["left_arm"] = None
-        self._last_control_state["left_arm"] = None
-        self._last_control_strategy["left_arm"] = None
-        self._last_error["right_arm"] = None
-        self._last_power_state["right_arm"] = None
-        self._last_control_state["right_arm"] = None
-        self._last_control_strategy["right_arm"] = None
 
         self._lwrdb = {}
         self._lwrdb["right_arm"] = LwrDashboard(namespace="ra")
@@ -229,9 +216,9 @@ class RqtLwrDashboard(Dashboard):
         self.btn_monitor_mode = QPushButton("monitor mode")
         self.btn_command_mode.setStyleSheet("background-color: rgb(197, 197, 197)")
         self.btn_monitor_mode.setStyleSheet("background-color: rgb(197, 197, 197)")
-        self.btn_drive_on = QPushButton("drive on")
+        self.btn_drive_on = QPushButton("ready")
         self.btn_drive_on.setStyleSheet("background-color: rgb(209, 149, 37)")
-        self.btn_drive_off = QPushButton("drive off")
+        self.btn_drive_off = QPushButton("standby")
         self.btn_drive_off.setStyleSheet("background-color: rgb(90, 148, 95)")
         self.btn_reset_fri = QPushButton("reset fri")
         self.btn_end_krl = QPushButton("end krl")
@@ -342,8 +329,9 @@ class RqtLwrDashboard(Dashboard):
         # self._main_widget.addLayout(hlayout)
         self._widget_initialized = True
 
+        self._subs_ns = {}
         self._diag_subs = {}
-        self._diag_ns = {}
+        self._state_subs = {}
         self.init_subscribers("left_arm", "la")
         self.init_subscribers("right_arm", "ra")
 
@@ -364,19 +352,23 @@ class RqtLwrDashboard(Dashboard):
         if group_name is not None:
             ns = namespace
             if namespace is None:
-                if group_name in self._diag_ns:
-                    ns = self._diag_ns[group_name]
+                if group_name in self._subs_ns:
+                    ns = self._subs_ns[group_name]
 
             if ns is not None:
+                self._subs_ns[group_name] = ns
                 if group_name not in self._diag_subs:
                     self._diag_subs[group_name] = rospy.Subscriber("/" + ns + "/diagnostics/", DiagnosticArray,
                                                                    functools.partial(self.diag_callback, group_name=group_name))
-                self._diag_ns[group_name] = ns
+
+                if group_name not in self._state_subs:
+                    self._state_subs[group_name] = rospy.Subscriber("/" + ns + "/power_state/", String,
+                                                                   functools.partial(self.state_callback, group_name=group_name))
 
     def on_timeout(self, group_name=None):
         if group_name is not None:
             if self.watchdog_timeout[group_name]:
-                self.change_button_state(group_name)
+                self.change_panel_state(group_name)
                 # cleanup connection that have a publisher and not data coming in
                 if self._diag_subs[group_name] is not None:
                     if self._diag_subs[group_name].get_num_connections() > 0:
@@ -625,59 +617,30 @@ class RqtLwrDashboard(Dashboard):
                     if msg.status[1].level == DiagnosticStatus.ERROR:
                         error = True
 
-            self.change_button_state(group_name, power_state, control_state, control_strategy, quality, error)
+            self.change_panel_state(group_name, control_strategy, quality)
 
-    def change_button_state(self, group_name, power_state=None, control_state=None, control_strategy=None, quality=None, error=False):
+    def state_callback(self, msg, group_name):
+        """
+        callback to process lwr power state messages
+        :param msg:
+        :type msg: String
+        """
+
+        if group_name in self._state_buttons:
+            # reset timer
+            self.watchdog_timeout[group_name] = False
+            if len(msg.data) > 0:
+                if msg.data in self._state_buttons[group_name]._state_dict:
+                    self._state_buttons[group_name].set_state(msg.data)
+                    #if msg.data in ["STANDBY"]:
+                    #  self._state_buttons[group_name].enable_menu.setChecked(False)
+
+    def change_panel_state(self, group_name, control_strategy=None, quality=None):
         # update buttons on state change
-
-        if error:
-                self._state_buttons[group_name].set_state("error")
-        else:
-            if power_state is not None and control_state is not None:
-                if power_state == "0000000":
-                    self._state_buttons[group_name].set_state("monitor_off")
-                elif power_state == "1111111" and control_state == "monitor":
-                    self._state_buttons[group_name].set_state("monitor_on")
-                elif power_state == "1111111" and control_state == "command":
-                    self._state_buttons[group_name].set_state("command")
-                else:
-                    if self._last_power_state[group_name] != power_state:
-                        print "Invalid states power:", power_state, ", control_state:", control_state
-                        self._state_buttons[group_name].set_state("disabled")
-                        self._state_buttons[group_name].enable_menu.setChecked(False)
-            else:
-                self._state_buttons[group_name].set_state("disabled")
-                self._last_power_state[group_name] = None
-                self._last_control_state[group_name] = None
-
-            if self._last_control_strategy[group_name] != control_strategy and control_strategy is not None:
-                for key in self.btn_ctrl[group_name]:
-                    if key == control_strategy:
-                        self.btn_ctrl[group_name][key].setStyleSheet("background-color: rgb(90, 148, 95)")  # green
-                    else:
-                        self.btn_ctrl[group_name][key].setStyleSheet("background-color: rgb(197, 197, 197)")  # grey
-                self._last_control_strategy[group_name] = control_strategy
 
             if self.lbl_friquality[group_name].text() != quality and quality is not None:
                 self.lbl_friquality[group_name].setText(quality)
 
-        if self._last_power_state[group_name] != power_state and power_state is not None and error is False:
-            if power_state == "1111111":
-                self._lwrdb[group_name].reset()
-                self.btn_command_mode.setEnabled(True)
-                self.btn_monitor_mode.setEnabled(True)
-                self.btn_command_mode.setStyleSheet("background-color: rgb(153, 42, 43)")
-                self.btn_monitor_mode.setStyleSheet("background-color: rgb(209, 149, 37)")
-            else:
-                self.btn_command_mode.setEnabled(False)
-                self.btn_monitor_mode.setEnabled(False)
-                self.btn_command_mode.setStyleSheet("background-color: rgb(197, 197, 197)")
-                self.btn_monitor_mode.setStyleSheet("background-color: rgb(197, 197, 197)")
-
-            self._last_power_state[group_name] = power_state
-            self._last_control_state[group_name] = control_state
-
-        self._last_error[group_name] = error
 
     def unregister(self):
         it = QTreeWidgetItemIterator(self)
