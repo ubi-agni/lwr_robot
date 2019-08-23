@@ -70,11 +70,11 @@ class ControlStateButton(MenuDashWidget):
             state_icon = 'ic-breaker.svg'
 
         command_icon = ['bg-red.svg', state_icon]
-        monitor_icon = ['bg-yellow.svg', state_icon]
-        ready_icon = ['bg-green.svg', state_icon]
-        standby_icon = ['bg-blue.svg', state_icon]
-        lestop_icon = ['bg-blue.svg', state_icon, 'ol-lestop-badge.svg']
-        gestop_icon = ['bg-blue.svg', state_icon, 'ol-gestop-badge.svg']
+        monitor_icon = ['bg-orange.svg', state_icon]
+        ready_icon = ['bg-yellow.svg', state_icon]
+        standby_icon = ['bg-green.svg', state_icon]
+        lestop_icon = ['bg-grey.svg', state_icon, 'ol-lestop-badge.svg']
+        gestop_icon = ['bg-grey.svg', state_icon, 'ol-gestop-badge.svg']
         error_icon = ['bg-grey.svg', state_icon, 'ol-err-badge.svg']
         disabled_icon = ['bg-light_grey.svg', state_icon]
 
