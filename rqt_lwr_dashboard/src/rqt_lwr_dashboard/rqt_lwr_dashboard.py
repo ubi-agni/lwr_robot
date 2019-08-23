@@ -409,11 +409,14 @@ class RqtLwrDashboard(Dashboard):
         """
         if group_name is not None:
             if self._state_buttons[group_name].enable_menu.isChecked():
-                self._lwrdb[group_name].enable_motors()
+                
+                if not self._lwrdb[group_name].enable_motors():
+                    print ("failed to enable motors")
         else:
             for group_name in self._state_buttons:
                 if self._state_buttons[group_name].enable_menu.isChecked():
-                    self._lwrdb[group_name].enable_motors()
+                    if not  self._lwrdb[group_name].enable_motors():
+                        print ("failed to enable motors")
 
     def on_btn_drive_off_clicked(self, group_name=None):
         """
@@ -423,11 +426,13 @@ class RqtLwrDashboard(Dashboard):
         """
         if group_name is not None:
             if self._state_buttons[group_name].enable_menu.isChecked():
-                self._lwrdb[group_name].disable_motors()
+                if not self._lwrdb[group_name].disable_motors():
+                    print ("failed to disable motors")
         else:
             for group_name in self._state_buttons:
                 if self._state_buttons[group_name].enable_menu.isChecked():
-                    self._lwrdb[group_name].disable_motors()
+                    if not self._lwrdb[group_name].disable_motors():
+                        print ("failed to disable motors")
 
     def on_btn_ctrl_change_clicked(self, group_name=None, mode=None):
         """
@@ -657,3 +662,4 @@ class RqtLwrDashboard(Dashboard):
         self.timer["right_arm"].stop()
         for group in self._diag_subs:
             self._diag_subs[group].unregister()
+            self._state_subs[group].unregister()
