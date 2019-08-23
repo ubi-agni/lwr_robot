@@ -79,7 +79,7 @@ class ControlStateButton(MenuDashWidget):
         disabled_icon = ['bg-light_grey.svg', state_icon]
 
         icons = [disabled_icon, error_icon, gestop_icon, lestop_icon, standby_icon, ready_icon, monitor_icon, command_icon]
-        self._state_dict = {"disabled": 0, "ERROR": 1, "GLOBAL ESTOP", 2: "LOCAL ESTOP", 3: "STANDBY", 4: "READY": 5, "MONITOR": 6, "COMMAND": 7}
+        self._state_dict = {"disabled": 0, "ERROR": 1, "GLOBAL ESTOP": 2, "LOCAL ESTOP": 3, "STANDBY": 4, "READY": 5, "MONITOR": 6, "COMMAND": 7}
 
         super(ControlStateButton, self).__init__('State:' + group_name, icons=icons, icon_paths=[['rqt_lwr_dashboard', 'images']])
 

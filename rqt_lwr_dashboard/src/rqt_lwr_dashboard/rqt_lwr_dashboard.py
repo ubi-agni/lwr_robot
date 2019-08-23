@@ -38,6 +38,7 @@ from QtWidgets import QPushButton, QWidget, QLabel, QSlider, \
 from lwr_dashboard.lwr_dashboard import LwrDashboard
 
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus
+from std_msgs.msg import String
 
 from .state_button import ControlStateButton
 
