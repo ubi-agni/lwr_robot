@@ -429,25 +429,19 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
       // est_ext_jnt_trq_(i) = m_msr_data.data.estExtJntTrq[i] = joint_trq_(i) + joints_[i]->GetForce(0);
 
       // compute force on the last link minus joint force on the last link
-  #if GAZEBO_MAJOR_VERSION >= 7
+  #if GAZEBO_MAJOR_VERSION >= 8
       ignition::math::Vector3d eef_link_force;
       ignition::math::Vector3d eef_link_torque;
       ignition::math::Vector3d eef_joint_force;
       ignition::math::Vector3d eef_joint_torque;
       if (i == LBR_MNJ - 1)
       {
-
         eef_joint_force = joints_[i]->GetForceTorque(0).body2Force;
         eef_joint_torque = joints_[i]->GetForceTorque(0).body2Torque;
         if(eef_link_)
         {
-   #if GAZEBO_MAJOR_VERSION >= 8
           eef_link_force = eef_link_->WorldForce();
           eef_link_torque = eef_link_->WorldTorque();
-   #else
-          eef_link_force = eef_link_->GetWorldForce();
-          eef_link_torque = eef_link_->GetWorldTorque();
-   #endif
         }
 
         if (model_name_.find("l_")!=std::string::npos)
@@ -534,14 +528,9 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
       */
       
       gazebo::physics::JointWrench jw = joints_[6]->GetForceTorque(0);
-  #if GAZEBO_MAJOR_VERSION >= 7
    #if GAZEBO_MAJOR_VERSION >= 8
       ignition::math::Vector3d jnt_axis = joints_[6]->LocalAxis(0);
       ignition::math::Vector3d jnt_world_axis = joints_[6]->GlobalAxis(0);
-   #else
-      ignition::math::Vector3d jnt_axis = joints_[6]->GetLocalAxis(0);
-      ignition::math::Vector3d jnt_world_axis = joints_[6]->GetGlobalAxis(0);
-   #endif
       if (model_name_.find("l_")!=std::string::npos)
       {
         ROS_DEBUG_NAMED("bodytrq", "lwr_ctrl %s:kuka %d: body2jntrq.x: %f, body2jntrq.y: %f, body2jntrq.z: %f \
