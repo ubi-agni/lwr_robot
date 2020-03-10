@@ -40,6 +40,7 @@
 #endif
 #include <ros/ros.h>
 #include <std_srvs/Empty.h>
+#include <std_msgs/String.h>
 #include <lwr_simulation/setPayload.h>
 #include <kdl/chain.hpp>
 #include <kdl/chaindynparam.hpp>
@@ -216,6 +217,9 @@ namespace gazebo
 
         tFriMsrData m_msr_data;
         tFriCmdData m_cmd_data;
+        
+        std_msgs::String power_state_msg_;
+        ros::Publisher power_state_pub_;
    };
 
 }

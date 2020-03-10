@@ -247,6 +247,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   //m_msr_data.robot.control = FRI_CTRL_JNT_IMP;
   m_msr_data.robot.control = FRI_CTRL_POSITION;
   m_msr_data.intf.state = FRI_STATE_MON;
+  power_state_msg_.data = "disabled";
   m_msr_data.robot.power = 0x0000;
 
   m_msr_data.robot.error = 0x0000;
@@ -258,7 +259,10 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   drive_on_ = false;
   brakes_on_ = true; // initially true to lock brakes at init
   freeze_ = true;
-
+  
+  // publisher of power_state
+  power_state_pub_ = rosnode_->advertise<std_msgs::String>("power_state", 2, true);
+  power_state_pub_.publish(power_state_msg_);
   // services for switching on and off the drives and release or activate the brakes
   drive_on_srv_ = rosnode_->advertiseService("drive_on", &LWRController::DriveOnCb, this);
   drive_off_srv_ = rosnode_->advertiseService("drive_off", &LWRController::DriveOffCb, this);
@@ -385,7 +389,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
     common::Time period = current_time_-previous_time_;
     // store the real period
     m_msr_data.intf.desiredMsrSampleTime=period.Double();
-
+    std_msgs::String power_state_msg = power_state_msg_;
    
     for(unsigned int i = 0; i< LBR_MNJ; i++)
     {
@@ -613,7 +617,6 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
     {
       m_msr_data.data.estExtTcpFT[i] = est_ext_tcp_ft_(i);
     }
-    
 
 
     if (cnt <= 10)
@@ -623,6 +626,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
       {
         ROS_INFO_STREAM("lwr_ctrl " << model_name_ << ":bad communication, changing to FRI_STATE_MON");
         m_msr_data.intf.state = FRI_STATE_MON;
+        power_state_msg.data = "MONITOR";
       }
       drive_on_ = false;
       brakes_on_ = true;
@@ -643,17 +647,25 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
         {
           ROS_INFO_STREAM("lwr_ctrl " << model_name_ << ":communication ok, changing to FRI_STATE_CMD");
           m_msr_data.intf.state = FRI_STATE_CMD;
+          power_state_msg.data = "COMMAND";
         }
       }
     }
 
     if (drive_on_ && !brakes_on_)
+    {
       m_msr_data.robot.power = 0xFFFF;
+      power_state_msg.data = m_msr_data.intf.state==FRI_STATE_CMD?"COMMAND":"MONITOR";
+    }
     else
     {
       m_msr_data.robot.power = 0x0;
+      power_state_msg.data = "READY";
       if (!drive_on_)
+      {
         m_msr_data.intf.state = FRI_STATE_MON;
+        power_state_msg.data = "STANDBY";
+      }
     }
 
     // send msr data to socket
@@ -661,6 +673,12 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
         (sockaddr*) &remoteAddr, sizeof(remoteAddr))) {
       ROS_ERROR_STREAM("lwr_ctrl " << model_name_ << ":Sending datagram failed.");
       //return -1;
+    }
+    // publish robot state too
+    if (power_state_msg.data != power_state_msg_.data)
+    {
+      power_state_pub_.publish(power_state_msg);
+      power_state_msg_.data = power_state_msg.data;
     }
 
     fd_set rd;
@@ -726,6 +744,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
                 if(m_msr_data.intf.state != FRI_STATE_MON)
                 {
                   m_msr_data.intf.state = FRI_STATE_MON;
+                  power_state_msg.data = "MONITOR";
                 }
                 m_msr_data.krl.intData[OKC_ACK_IDX] = OKC_FRI_STOP;
                 m_msr_data.krl.intData[OKC_SEQ_IDX]++;
