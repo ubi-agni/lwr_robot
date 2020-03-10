@@ -53,6 +53,7 @@
 #include <unistd.h> /* for close() */
 #include <arpa/inet.h>/* for inet_Addr etc*/
 
+#define LWRSIM_DEFAULT_HIGH_STIFFNESS (2000.0)
 #define LWRSIM_DEFAULT_STIFFNESS (200.0)
 #define LWRSIM_DEFAULT_CARTSTIFFNESSFORCE (200.0)
 #define LWRSIM_DEFAULT_CARTSTIFFNESSTORQUE (30.0)

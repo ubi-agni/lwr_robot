@@ -896,7 +896,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 
                   // Joint Position (high impendance)
                   if( m_msr_data.robot.control == FRI_CTRL_POSITION ) {
-                    stiffness_(i) = LWRSIM_DEFAULT_STIFFNESS;
+                    stiffness_(i) = LWRSIM_DEFAULT_HIGH_STIFFNESS;
                     damping_(i) = LWRSIM_DEFAULT_DAMPING;
                     trq_cmd_(i) = LWRSIM_DEFAULT_TRQ_CMD;
 
