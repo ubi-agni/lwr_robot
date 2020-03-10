@@ -949,8 +949,9 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 
                 // compute the torque
                 trq_ = stiffness_.asDiagonal() * (joint_pos_cmd_ - joint_pos_) - damping_.asDiagonal() * joint_vel_ + i_gain_.asDiagonal() * i_term_ + trq_cmd_;
-                
-                ROS_DEBUG_STREAM_THROTTLE_NAMED(0.1, "joint", "lwr_ctrl " << model_name_ << " i_term(0) " << i_term_(0) << " i_gain(0) " << i_gain_(0) << " trq(0) no comp " << trq_(0));
+                ROS_DEBUG_STREAM_THROTTLE_NAMED(0.1, "joint", "lwr_ctrl " << model_name_ << " joint_pos_cmd_(0) " << joint_pos_cmd_(0) << " joint_pos_(0) " 
+                                                     << joint_pos_(0) << " i_term(0) " << i_term_(0) << " i_gain(0) " << i_gain_(0) << " trq(0) no comp "
+                                                     << trq_(0) << " grav(0) " << grav(0) << " coriolis(0) " << coriolis(0));
 
                 // add gravity and coriolis compensation
                 for(unsigned int i = 0; i< LBR_MNJ; i++) {
