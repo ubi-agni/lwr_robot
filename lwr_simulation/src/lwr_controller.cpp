@@ -109,7 +109,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     ROS_WARN_STREAM("Gravity direction not given to lwrcontroller plugin " << model_name_ << ", using default. \nThis will only work if you robot is standing on the floor !");
     gravityDirection_ = ignition::math::Vector3d(0,0,-9.81);
   }
-  ROS_WARN_STREAM("Gravity direction " << model_name_ << ": " << gravityDirection_.X() << ", " << gravityDirection_.Y() << ", " << gravityDirection_.Z()  );
+  ROS_INFO_STREAM("Gravity direction " << model_name_ << ": " << gravityDirection_.X() << ", " << gravityDirection_.Y() << ", " << gravityDirection_.Z()  );
   gzdbg << "gravity Dir : " << gravityDirection_.X() << ", " << gravityDirection_.Y() << ", " << gravityDirection_.Z() << "\n";
 #else
   if (_sdf->HasElement("gravityDirection"))
@@ -164,6 +164,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     if(_sdf->HasElement(joint_name + "_init")) {
       double init = _sdf->GetElement(joint_name + "_init")->Get<double>();
       joint->SetPosition(0, init);
+      joint->SetVelocity(0, 0.0);
       freeze_pos_(i) = init; // also lock brakes at init pos
     }
     
@@ -286,6 +287,8 @@ void LWRController::changePayload(const double m, const double cog_x, const doub
     // retrieve the initial mass, cog and inertia of the last segment
     eeMass_ = inertia_ee.getMass();
     eeCOG_ = inertia_ee.getCOG();
+    ROS_INFO_STREAM("initial CoG of ee : " << eeCOG_[0] << ", " << eeCOG_[1] << ", " << eeCOG_[2]);
+    ROS_INFO_STREAM("initial mass of ee : " << eeMass_);
     gzdbg << "initial CoG of ee : " << eeCOG_[0] << ", " << eeCOG_[1] << ", " << eeCOG_[2] << "\n";
     gzdbg << "initial mass of ee : " << eeMass_ << "\n";
   }
@@ -299,11 +302,18 @@ void LWRController::changePayload(const double m, const double cog_x, const doub
   KDL::Vector payload_cog_offset(cog_x, cog_y, cog_z);
 
   double m_combined = eeMass_ + m;
+  if (m_combined == 0)
+  {
+    ROS_WARN_STREAM("combined new end-effector mass is wrong, current end-effector mass " << eeMass_ << " payload mass " << m);
+    return;
+  }
   KDL::Vector cog_offset_combined = (payload_cog_offset - eeCOG_) * m / m_combined;
   cog_offset_combined += eeCOG_;
   
   gzdbg << "combined CoG of ee : " << cog_offset_combined[0] << ", " << cog_offset_combined[1] << ", " << cog_offset_combined[2] << "\n";
   gzdbg << "combined mass of ee : " << m_combined << "\n";
+  ROS_INFO_STREAM( "combined CoG of ee : " << cog_offset_combined[0] << ", " << cog_offset_combined[1] << ", " << cog_offset_combined[2]);
+  ROS_INFO_STREAM("combined mass of ee : " << m_combined);
 
   // set the new inertia at the end-effector.
   segment_ee_ptr->setInertia(KDL::RigidBodyInertia(m_combined, cog_offset_combined, rot_inertia_ee));
@@ -357,9 +367,9 @@ void LWRController::GetRobotChain()
   gzdbg << "initialized joint_axes vector with size " << joint_axes_.size();
   
 #if GAZEBO_MAJOR_VERSION >= 7
-  changePayload(payloadMass_, payloadCOG_.X(), payloadCOG_.Y(), payloadCOG_.Z());
+  changePayload(payloadMass_, payloadCOG_.X(), payloadCOG_.Y(), payloadCOG_.Z(), true);
 #else
-  changePayload(payloadMass_, payloadCOG_[0], payloadCOG_[1], payloadCOG_[2]);
+  changePayload(payloadMass_, payloadCOG_[0], payloadCOG_[1], payloadCOG_[2], true);
 #endif
   initSolvers();
 }
@@ -375,6 +385,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
     KDL::Frame T;
     KDL::Jacobian jac(LBR_MNJ);
     KDL::JntSpaceInertiaMatrix H(LBR_MNJ);
+    //KDL initializes JntArrays to zero
     KDL::JntArray pos(LBR_MNJ);
     KDL::JntArray vel(LBR_MNJ);
     KDL::JntArray grav(LBR_MNJ);
@@ -399,7 +410,6 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
   #else
       m_msr_data.data.cmdJntPos[i] = m_msr_data.data.msrJntPos[i] = pos(i) = joint_pos_(i) = joints_[i]->GetAngle(0).Radian();
   #endif
-
       // filter is worth less here, as the joint_vel is not transmitted to FRI
       //joint_vel_(i) = (joint_pos_(i) - joint_pos_prev_(i))*(0.2/period.Float()) + joint_vel_(i)*0.8 ;
       joint_vel_(i) = vel(i) = joints_[i]->GetVelocity(0);
@@ -674,6 +684,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
       ROS_ERROR_STREAM("lwr_ctrl " << model_name_ << ":Sending datagram failed.");
       //return -1;
     }
+    
     // publish robot state too
     if (power_state_msg.data != power_state_msg_.data)
     {
@@ -693,7 +704,8 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 
     // receive cmd data from socket
     int sret = select(socketFd+1, &rd, NULL, NULL, &tv);
-    if(sret > 0) {
+    if(sret > 0)
+    {
       int n = recvfrom(socketFd, (void*) &m_cmd_data, sizeof(m_cmd_data), 0,
         (sockaddr*) &cliAddr, &cliAddr_len);
       if (sizeof(tFriCmdData) != n) {
@@ -955,7 +967,14 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 
                 // add gravity and coriolis compensation
                 for(unsigned int i = 0; i< LBR_MNJ; i++) {
+                  /*if (std::isnan(trq_(i) + grav(i) + coriolis(i)))
+                  {
+                    ROS_WARN_STREAM_ONCE("joint " << i << " is NaN, trq " << trq_(i) << " grav " << grav(i) << " corio " << coriolis(i));
+                  }
+                  else
+                  */
                   joints_[i]->SetForce(0, trq_(i) + grav(i) + coriolis(i));
+                  
                 }
                 ROS_DEBUG_STREAM_THROTTLE_NAMED(5.0, "krl", "lwr_ctrl " << model_name_ << ":joint control");
               }
