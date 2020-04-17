@@ -3,6 +3,9 @@
 #include <errno.h>
 #include <lwr_simulator/lwr_controller.h>
 
+// uncomment this to enable force estimation (currently not working well in ODE, untested in other engines)
+// #define FORCE_EST
+
 namespace gazebo
 {
 
@@ -378,6 +381,7 @@ void LWRController::GetRobotChain()
 // Update the controller
 void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 {
+  // ros::WallTime tic = ros::WallTime::now();
   if (valid_chain_)
   {
     struct sockaddr cliAddr;
@@ -394,7 +398,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
     // for cartesian computations
     Eigen::Matrix<double, 7, 6> Ji, jT;
     Eigen::Matrix<double, 6, 7> jTi;
-
+    
     previous_time_ = current_time_;
     current_time_ = update_info.realTime;
     common::Time period = current_time_-previous_time_;
@@ -419,6 +423,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 
     for(unsigned int i = 0; i< LBR_MNJ; i++)
     {
+#ifdef FORCE_EST
       // get current torques
       /* IN ODE GetForce retrieves last commanded force, not real torque on the joint !
        * joint_trq_(i) = m_msr_data.data.msrJntTrq[i] = joints_[i]->GetForce(0);
@@ -434,6 +439,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
 
       // getForceTorque SHOULD already have removed the commanded part, so no need to suppress it, BUT for unknown reason the source code of gazebo does not match values we see.
       // need to use kdl representation of joint axis which is local to the joint frame
+
       joint_trq_(i) = m_msr_data.data.msrJntTrq[i] = joints_[i]->GetForceTorque(0).body2Torque.Dot(joint_axes_[i]);
 
       // estimated external torques (current torque - commanded torque at previous step)
@@ -443,6 +449,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
       // est_ext_jnt_trq_(i) = m_msr_data.data.estExtJntTrq[i] = joint_trq_(i) + joints_[i]->GetForce(0);
 
       // compute force on the last link minus joint force on the last link
+      
   #if GAZEBO_MAJOR_VERSION >= 8
       ignition::math::Vector3d eef_link_force;
       ignition::math::Vector3d eef_link_torque;
@@ -493,6 +500,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
       {
         ROS_DEBUG_NAMED("trq", "%s:jnt %d pos %f body_trq: %f, est_ext_trq: %f, get_force_trq: %f, motion_trq: %f, grav: %f, corio: %f", model_name_.c_str(), i, joint_pos_(i), joint_trq_(i), est_ext_jnt_trq_(i), joints_[i]->GetForce(0), trq_(i), grav(i), coriolis(i));
       }
+#endif
       // reset output torques;
       trq_(i) = 0;
     }
@@ -540,7 +548,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
       }
     }
       */
-      
+#ifdef FORCE_EST      
       gazebo::physics::JointWrench jw = joints_[6]->GetForceTorque(0);
    #if GAZEBO_MAJOR_VERSION >= 8
       ignition::math::Vector3d jnt_axis = joints_[6]->LocalAxis(0);
@@ -572,6 +580,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
       }
   #endif
 
+#endif
     for(unsigned int i = 0; i< LBR_MNJ; i++)
     {
       m_msr_data.data.gravity[i]=grav(i);
@@ -594,6 +603,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
     m_msr_data.data.msrCartPos[10] = T.M.data[8];
     m_msr_data.data.msrCartPos[11] = T.p.data[2];
 
+#ifdef FORCE_EST
     jc->JntToJac(pos, jac);
     KDL::Jacobian jac_fri = jac;
     jac_fri.changeRefFrame(KDL::Frame(T.Inverse().M));
@@ -610,24 +620,27 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
         mass_(i,j) = H.data(i, j);
       }
     }
+   
 
     // compute the external force/torque estimated at the end-effector
     //  calculate the transpose of jacobian
     jT = jac.data.transpose();
     //  calculate the jacobian transpose pseudo inverse
     jTi = (jac.data * jT).inverse() * jac.data;
+
     //  derive estimated ext wrench at tip from est_ext_jnt_trq
     est_ext_tcp_ft_ = jTi * est_ext_jnt_trq_;
     //  Kuka uses Fx, Fy, Fz, Tz, Ty, Tx convention, so we need to swap Tz and Tx
     double tmp = est_ext_tcp_ft_(5);
     est_ext_tcp_ft_(5) = est_ext_tcp_ft_(3);
-    est_ext_tcp_ft_(3) = tmp; 
+    est_ext_tcp_ft_(3) = tmp;
+    
     // publish it to FRI
     for(unsigned int i = 0; i< 6; i++)
     {
       m_msr_data.data.estExtTcpFT[i] = est_ext_tcp_ft_(i);
     }
-
+#endif
 
     if (cnt <= 10)
     {
@@ -685,7 +698,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
       //return -1;
     }
     
-    // publish robot state too
+    // publish robot state too, if it changes
     if (power_state_msg.data != power_state_msg_.data)
     {
       power_state_pub_.publish(power_state_msg);
@@ -695,7 +708,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
     fd_set rd;
     struct timeval tv;
     tv.tv_sec = 0;
-    tv.tv_usec = 333;
+    tv.tv_usec = 333;  // in worse case, if no answer was received after this timeout do not wait anylonger
 
     FD_ZERO(&rd);
     FD_SET(socketFd, &rd);
@@ -992,7 +1005,32 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
                   freeze_ = false;
                   joint_pos_cmd_ = joint_pos_; //maybe take the joint pos from previous cycle
                   // commanded cart pos
+#ifndef FORCE_EST 
+                  // in case force_estimation is active, those computation were done further up
+                  jc->JntToJac(pos, jac);
+                  KDL::Jacobian jac_fri = jac;
+                  jac_fri.changeRefFrame(KDL::Frame(T.Inverse().M));
+                  //Kuka uses Tx, Ty, Tz, Rz, Ry, Rx convention, so we need to swap Rz and Rx
+                  jac_fri.data.row(3).swap(jac_fri.data.row(5));
+                  for ( int i = 0; i < FRI_CART_VEC; i++)
+                    for ( int j = 0; j < LBR_MNJ; j++)
+                      m_msr_data.data.jacobian[i*LBR_MNJ+j] = jac_fri.data(i,j);
 
+                  dyn->JntToMass(pos, H);
+                  for(unsigned int i=0;i<LBR_MNJ;i++) {
+                    for(unsigned int j=0;j<LBR_MNJ;j++) {
+                      m_msr_data.data.massMatrix[LBR_MNJ*i+j] = H.data(i, j);
+                      mass_(i,j) = H.data(i, j);
+                    }
+                  }
+                 
+
+                  // compute the external force/torque estimated at the end-effector
+                  //  calculate the transpose of jacobian
+                  jT = jac.data.transpose();
+                  //  calculate the jacobian transpose pseudo inverse
+                  jTi = (jac.data * jT).inverse() * jac.data;
+#endif
                   
                   if (m_cmd_data.cmd.cmdFlags & FRI_CMD_CARTPOS | cart_initialized)
                   {
@@ -1184,6 +1222,7 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
       }
     }
     else {
+      // no cmd data received
       if(cnt > 0)
         --cnt;
       if(cnt <= 10)
@@ -1194,6 +1233,11 @@ void LWRController::UpdateChild(const common::UpdateInfo &update_info)
     ROS_DEBUG_THROTTLE_NAMED(0.1, "joint", "lwr_ctrl %s :kuka pos cmd %f pos current %f vel curr %f trq_cmd %f trq %f, grav %f corio %f", model_name_.c_str(), joint_pos_cmd_(3), joint_pos_(3), joint_vel_(3), trq_cmd_(3), trq_(3), grav(3), coriolis(3));
     }
   }
+  /*
+  ros::WallTime toc = ros::WallTime::now();
+  ros::WallDuration dur = toc - tic;
+  ROS_INFO_STREAM_THROTTLE(0.5, "loop time " << dur.toSec());
+  */
 }
 
 bool LWRController::DriveOnCb(std_srvs::Empty::Request  &req,
