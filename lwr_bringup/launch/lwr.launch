@@ -1,7 +1,7 @@
 <launch>
 
   <!-- send elektron.xml to param server -->
-  <param name="robot_description" command="$(find xacro)/xacro.py '$(find lwr_description)/robots/kuka_lwr_arm.urdf.xacro'" />
+  <param name="robot_description" command="xacro '$(find lwr_description)/robots/kuka_lwr_arm.urdf.xacro'" />
 
   <rosparam command="load" file="$(find lwr_bringup)/config/controllers.yaml" />
 

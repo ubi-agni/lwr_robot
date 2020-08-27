@@ -12,7 +12,7 @@
   
   <!-- load robot -->
   <param name="/use_sim_time" value="true"/>
-  <param name="robot_description" command="$(find xacro)/xacro.py '$(find lwr_description)/robots/kuka_lwr_arm.urdf.xacro'" />   
+  <param name="robot_description" command="xacro '$(find lwr_description)/robots/kuka_lwr_arm.urdf.xacro'" />   
   <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-param robot_description -urdf -model kuka-lwr-arm" />
 
 </launch>
