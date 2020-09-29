@@ -657,6 +657,7 @@ class RqtLwrDashboard(Dashboard):
             if len(msg.data) > 0:
                 if msg.data in self._state_buttons[group_name]._state_dict:
                     self._state_buttons[group_name].set_state(msg.data)
+                    """
                     if msg.data in ["READY", "MONITOR", "COMMAND"]:
                     #  self._state_buttons[group_name].enable_menu.setChecked(False)
                         self.btn_monitor_mode.setEnabled(True)
@@ -671,6 +672,7 @@ class RqtLwrDashboard(Dashboard):
                     else:
                         self.btn_command_mode.setEnabled(False)
                         self.btn_command_mode.setStyleSheet("background-color: rgb(197, 197, 197)")
+                    """
 
     def change_panel_state(self, group_name, control_strategy=None, quality=None):
         # update buttons on state change
