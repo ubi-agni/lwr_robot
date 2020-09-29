@@ -52,6 +52,10 @@ class LwrDashboard(object):
         self._seq_cnt = None
         self._namespace = namespace
         self._seq_mismatch_count = 0
+        self._last_axis_stiffness = None
+        self._last_axis_damping = None
+        self._last_cp_stiffness = None
+        self._last_cp_damping = None
 
         self.init_publisher()
         self.init_subscriber()
@@ -227,6 +231,12 @@ class LwrDashboard(object):
         """
         return self.krl_request(OROCOS_OKC_SWITCH_CONTROL_MODE)
 
+    def get_last_axis_stiffness_damping(self):
+        return [self._last_axis_stiffness, self._last_axis_damping]
+
+    def get_last_cp_stiffness_damping(self):
+        return [self._last_cp_stiffness, self._last_cp_damping]
+
     def set_axis_stiffness_damping(self, stiffness=None, damping=None):
         """
         Set stiffness and damping in axis mode
@@ -258,7 +268,9 @@ class LwrDashboard(object):
             else:
                 rospy.logwarn("wrong damping size %d, should be 7"
                               % len(damping))
-        if mystiffness is not None and mydamping is not None:
+        if stiffness is not None and damping is not None:
+            self._last_axis_stiffness = stiffness
+            self._last_axis_damping = [v * 10 for v in damping]
             return self.krl_request(OKC_SET_AXIS_STIFFNESS_DAMPING, mystiffness, mydamping)
 
     def set_cp_stiffness_damping(self, stiffness=None, damping=None):
@@ -290,7 +302,9 @@ class LwrDashboard(object):
             else:
                 rospy.logwarn("wrong damping size %d, should be 6"
                               % len(damping))
-        if mystiffness is not None and mydamping is not None:
+        if stiffness is not None and damping is not None:
+            self._last_cp_stiffness = stiffness
+            self._last_cp_damping = [v * 10 for v in damping]
             return self.krl_request(OKC_SET_CP_STIFFNESS_DAMPING, mystiffness, mydamping)
 
     def move_park_pos(self):

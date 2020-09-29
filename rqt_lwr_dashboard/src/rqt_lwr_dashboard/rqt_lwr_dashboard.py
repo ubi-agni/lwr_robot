@@ -44,30 +44,43 @@ from .state_button import ControlStateButton
 
 
 class StiffnessDamping_Dialog(object):
-    def setupUi(self, Dialog, mode="Joint impedance"):
+    def setupUi(self, Dialog, mode="Joint impedance", stiffness_current=None, damping_current=None):
         Dialog.setObjectName("Dialog")
 
         if mode is not None:
             impendances = ["stiffness", "damping"]
             if mode == "Joint impedance":
-                self.slider_names = ["A1", "A2", "A3", "A4", "A5", "A6", "E1"]
+                self.slider_names = ["A1", "A2", "E1", "A3", "A4", "A5", "A6"]
                 impedance_max = {}
                 impedance_max["stiffness"] = [2000]*7
                 impedance_max["damping"] = [10.0]*7
                 impedance_default = {}
-                impedance_default["stiffness"] = [500] * 7
-                impedance_default["damping"] = [7.0] * 7  # use max*10 and divide later to get float
+                if stiffness_current is not None and len(stiffness_current) == 7:
+                    impedance_default["stiffness"] = stiffness_current
+                else:
+                    impedance_default["stiffness"] = [500] * 7
+                if damping_current is not None and len(damping_current) == 7:
+                    impedance_default["damping"] = damping_current
+                else:
+                    impedance_default["damping"] = [7.0] * 7  # use max*10 and divide later to get float
             else:
                 if mode == "Cartesian impedance":
                     self.slider_names = ["X", "Y", "Z", "A", "B", "C"]
                     impedance_max = {}
+                    
                     impedance_max["stiffness"] = [500] * 6
                     impedance_max["damping"] = [10.0] * 6  # use max*10 and divide later to get float
                     impedance_default = {}
-                    impedance_default["stiffness"] = [200] * 6
-                    impedance_default["damping"] = [7.0] * 6  # use max*10 and divide later to get float
+                    if stiffness_current is not None and len(stiffness_current) == 6:
+                        impedance_default["stiffness"] = stiffness_current
+                    else:
+                        impedance_default["stiffness"] = [200] * 6
+                    if damping_current is not None and len(damping_current) == 6:
+                        impedance_default["damping"] = damping_current
+                    else:
+                        impedance_default["damping"] = [7.0] * 6  # use max*10 and divide later to get float
                 else:
-                    print mode
+                    print (mode, " not supported")
                     self.slider_names = []
 
             self.val = {}
@@ -160,9 +173,9 @@ class StiffnessDamping_Dialog(object):
 
 
 class StartDlg(QDialog, StiffnessDamping_Dialog):
-    def __init__(self, mode, parent=None):
+    def __init__(self, mode, stiffness, damping, parent=None):
         QDialog.__init__(self, parent)
-        self.setupUi(self, mode=mode)
+        self.setupUi(self, mode=mode, stiffness_current=stiffness, damping_current=damping)
 
 
 class RqtLwrDashboard(Dashboard):
@@ -451,9 +464,9 @@ class RqtLwrDashboard(Dashboard):
                     if mode == "Joint impedance":
                         self._lwrdb[group_name].switch_joint_impedance_control()
                 else:
-                    print "btn control change requires a valid mode. (", mode, ") given"
+                    print ("btn control change requires a valid mode. (", mode, ") given")
         else:
-            print "btn control change requires a valid group name. (", group_name, ") given"
+            print ("btn control change requires a valid group name. (", group_name, ") given")
 
     def on_btn_stiffdamp_change_clicked(self, group_name=None, mode=None):
         """
@@ -465,10 +478,16 @@ class RqtLwrDashboard(Dashboard):
             if self._state_buttons[group_name].enable_menu.isChecked():
                 if mode is not None:
                     # show a dialog with sliders
-                    self.ui = StartDlg(mode)
+                    last_stiffness = None
+                    last_damping = None
+                    if mode == "Joint impedance":
+                        [last_stiffness, last_damping] = self._lwrdb[group_name].get_last_axis_stiffness_damping()
+                    if mode == "Cartesian impedance":
+                        [last_stiffness, last_damping] = self._lwrdb[group_name].get_last_cp_stiffness_damping()
+                    self.ui = StartDlg(mode, last_stiffness, last_damping)
                     if self.ui.exec_():
                         values = self.ui.getValues()
-                        print values
+                        #print (values)
                         ret = False
                         if mode == "Joint impedance":
                             ret = self._lwrdb[group_name].set_axis_stiffness_damping(values["stiffness"], values["damping"])
@@ -476,13 +495,13 @@ class RqtLwrDashboard(Dashboard):
                             ret = self._lwrdb[group_name].set_cp_stiffness_damping(values["stiffness"], values["damping"])
 
                         if ret is False:
-                            print "btn stiffness change did not succeed in changing stiffness"
+                            print ("btn stiffness change did not succeed in changing stiffness")
                 else:
-                    print "btn stiffness change requires a valid mode. (", mode, ") given"
+                    print ("btn stiffness change requires a valid mode. (", mode, ") given")
             else:
-                print group_name, " is disabled, cannot set stiffness/damping"
+                print (group_name, " is disabled, cannot set stiffness/damping")
         else:
-            print "btn stiffness change requires a valid group name. (", group_name, ") given"
+            print ("btn stiffness change requires a valid group name. (", group_name, ") given")
 
     def on_btn_reset_fri_clicked(self, group_name=None):
         """
@@ -544,16 +563,16 @@ class RqtLwrDashboard(Dashboard):
 
                 response = QMessageBox.warning(self._main_widget, "Warning!", msg, flags, QMessageBox.Abort)
                 if response == QMessageBox.Ok:
-                    print "Proceeding to go home"
+                    print ("Proceeding to go home")
                     self._lwrdb[group_name].move_start_pos()
 
                 else:
-                    print "Canceled go home request"
+                    print ("Canceled go home request")
         else:
             '''for group_name in self._state_buttons:
                 if self._state_buttons[group_name].enable_menu.isChecked():
                     self._lwrdb[group_name].move_start_pos()'''
-            print "Going home not supported for dual arm yet"
+            print ("Going home not supported for dual arm yet")
 
     def on_btn_park_clicked(self, group_name=None):
         """
@@ -574,15 +593,15 @@ class RqtLwrDashboard(Dashboard):
 
                 response = QMessageBox.warning(self._main_widget, "Warning!", msg, flags, QMessageBox.Abort)
                 if response == QMessageBox.Ok:
-                    print "Proceeding to park pose"
+                    print ("Proceeding to park pose")
                     self._lwrdb[group_name].move_park_pos()
                 else:
-                    print "Canceled park pose request"
+                    print ("Canceled park pose request")
         else:
             '''for group_name in self._state_buttons:
                 if self._state_buttons[group_name].enable_menu.isChecked():
                     self._lwrdb[group_name].move_park_pos()'''
-            print "Going park pose not supported for dual arm yet"
+            print ("Going park pose not supported for dual arm yet")
 
     def get_widgets(self):
         widgets_list = []
