@@ -46,6 +46,13 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   gzdbg << "plugin model name: " << model_name_ << "\n";
 
   // get parameter name
+  std::string robotNamespace = "";
+  if (_sdf->HasElement("robotNamespace"))
+    robotNamespace = _sdf->GetElement("robotNamespace")->Get<std::string>();
+
+
+  this->rosnode_ = new ros::NodeHandle(robotNamespace);
+  // get parameter name
   this->robotPrefix = "";
   if (_sdf->HasElement("robotPrefix"))
     this->robotPrefix = _sdf->GetElement("robotPrefix")->Get<std::string>();
@@ -54,10 +61,17 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   if (_sdf->HasElement("remotePort"))
     this->remote_port = _sdf->GetElement("remotePort")->Get<double>();
   remote = "127.0.0.1";
-  gzdbg << "remote : " << remote << " : " << remote_port << "\n";
-
   if (_sdf->HasElement("remoteIP"))
     this->remote = _sdf->GetElement("remoteIP")->Get<std::string>();
+  // override with remoteIP on the param server
+  std::string remote_ip_string;
+  rosnode_->param("remoteIP", remote_ip_string, std::string());
+  if (!remote_ip_string.empty())
+  {
+    this->remote = remote_ip_string;
+  }
+
+  gzdbg << "remote : " << remote << " : " << remote_port << "\n";
 
   chain_start = this->robotPrefix + "_arm_base_link";
   if (_sdf->HasElement("baseLink"))
@@ -75,11 +89,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   if (!eef_link_)
     ROS_WARN_STREAM("lwr_ctrl " << model_name_ << " chain_end  " << this->chain_end << " link was not found");
 
-  // get parameter name
-  std::string robotNamespace = "";
-  if (_sdf->HasElement("robotNamespace"))
-    robotNamespace = _sdf->GetElement("robotNamespace")->Get<std::string>();
-
+ 
   payloadMass_ = 0.0;
   if (_sdf->HasElement("payloadMass"))
     payloadMass_ = _sdf->GetElement("payloadMass")->Get<double>();
@@ -146,7 +156,7 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
     auto_on_ = true;
   }
 
-  this->rosnode_ = new ros::NodeHandle(robotNamespace);
+
   GetRobotChain();
 
   for(unsigned int i = 0; i< LBR_MNJ; i++)
@@ -236,10 +246,10 @@ void LWRController::Load( physics::ModelPtr _parent, sdf::ElementPtr _sdf )
   localAddr.sin_port = htons(remote_port + 1);
 
   if (bind(socketFd, (sockaddr*) &localAddr, sizeof(sockaddr_in)) < 0) {
-    ROS_ERROR_STREAM("lwr_ctrl " << model_name_ << ":Binding of port " << remote_port << " failed");
+    ROS_ERROR_STREAM("lwr_ctrl " << model_name_ << ":Binding of port " << remote_port << " failed"  << " on ip " << remote);
   }
   else
-		ROS_INFO_STREAM("lwr_ctrl " << model_name_ << ":Bound to port " <<remote_port);
+		ROS_INFO_STREAM("lwr_ctrl " << model_name_ << ":Bound to port " << remote_port << " on ip " << remote);
 
   bzero((char *) &remoteAddr, sizeof(remoteAddr));
 	remoteAddr.sin_family = AF_INET;

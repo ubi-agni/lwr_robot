@@ -2,7 +2,7 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 	<!-- namespace must be set up according to launch file namespace -->
 	<!-- port is the port number for the FRI UDP connection (be aware that port+1 is also used) --> 
-	<xacro:macro name="lwr_arm_gazebo_controller" params="namespace port prefix gravity_dir:=^|'0 0 -9.81'
+	<xacro:macro name="lwr_arm_gazebo_controller" params="namespace port prefix ip:=^|'127.0.0.1' gravity_dir:=^|'0 0 -9.81'
 		                                                    payload_mass:=^|0.0 payload_cog:=^|'0 0 0'
 		                                                    init_joint_pos:=^|'0 0 0 0 0 0 0'
 		                                                    igains:=^|''
@@ -13,6 +13,7 @@
 				<alwaysOn>true</alwaysOn>
 				<robotPrefix>${prefix}</robotPrefix>
 				<robotNamespace>${namespace}</robotNamespace>
+				<remoteIP>${ip}</remoteIP>
 				<remotePort>${port}</remotePort>
 				<baseLink>${prefix_}arm_base_link</baseLink>
 				<!-- <toolLink>${prefix_}tool_mount</toolLink>-->
